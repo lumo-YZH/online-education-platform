@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: edu-order
+  profiles:
+    active: local  # 默认使用 local 环境
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${nacos.server-addr}
+      config:
+        import-check:
+          enabled: false
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath:mapper/*.xml
+
+# Seata 配置（暂时禁用）
+seata:
+  enabled: false

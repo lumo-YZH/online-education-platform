@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: edu-gateway
+  profiles:
+    active: local  # 默认使用 local 环境
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${nacos.server-addr}
+      config:
+        import-check:
+          enabled: false
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # 用户服务
+        - id: edu-user
+          uri: lb://edu-user
+          predicates:
+            - Path=/user/**
+        
+        # 课程服务
+        - id: edu-course
+          uri: lb://edu-course
+          predicates:
+            - Path=/course/**
+        
+        # 订单服务
+        - id: edu-order
+          uri: lb://edu-order
+          predicates:
+            - Path=/order/**
+      
+      # 全局跨域配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "*"
+            allowed-methods: "*"
+            allowed-headers: "*"

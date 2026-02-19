@@ -1,0 +1,19 @@
+.idea/
+target/
+*.iml
+*.log
+.DS_Store
+*.class
+*.jar
+*.war
+*.ear
+.settings/
+.classpath
+.project
+.vscode/
+
+# 所有子模块的 target
+**/target/
+
+# 本地配置文件（不提交到 Git）
+**/application-local.yml

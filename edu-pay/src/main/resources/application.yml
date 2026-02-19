@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: edu-pay
+  profiles:
+    active: local  # 默认使用 local 环境
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${nacos.server-addr}
+      config:
+        import-check:
+          enabled: false
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath:mapper/*.xml
+
+# 支付宝配置
+alipay:
+  app-id: ${alipay.app-id}
+  private-key: ${alipay.private-key}
+  public-key: ${alipay.public-key}
+  gateway-url: https://openapi.alipaydev.com/gateway.do
+  notify-url: ${alipay.notify-url}

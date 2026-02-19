@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: edu-course
+  profiles:
+    active: local  # 默认使用 local 环境
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${nacos.server-addr}
+      config:
+        import-check:
+          enabled: false
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath:mapper/*.xml

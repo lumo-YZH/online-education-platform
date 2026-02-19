@@ -1,0 +1,81 @@
+ 服务拆分（8个核心服务）
+┌─────────────────────────────────────────────────────────┐│                    Gateway 网关层                        ││         (路由、鉴权、限流、日志、跨域)                    │└─────────────────────────────────────────────────────────┘                            ↓┌─────────────────────────────────────────────────────────┐│                  业务服务层（8个服务）                    │├──────────────┬──────────────┬──────────────┬────────────┤│ user-service │ course-service│ order-service│ pay-service││  用户服务     │   课程服务    │   订单服务    │  支付服务   │├──────────────┼──────────────┼──────────────┼────────────┤│ video-service│ search-service│comment-service│ msg-service││  视频服务     │   搜索服务    │   评论服务    │  消息服务   │└──────────────┴──────────────┴──────────────┴────────────┘                            ↓┌─────────────────────────────────────────────────────────┐│                  基础设施层                              ││  Nacos | Sentinel | Seata | RabbitMQ | Redis | ES       │└─────────────────────────────────────────────────────────┘
+📦 核心服务详细设计
+1. user-service（用户服务）
+职责： 用户注册、登录、个人信息管理、学习记录
+技术亮点：
+JWT + Redis 实现分布式 Session
+手机号 + 验证码登录（阿里云短信）
+用户学习行为埋点
+数据库表：
+user（用户表）user_profile（用户资料）user_study_record（学习记录）user_coupon（用户优惠券）
+核心接口：
+POST   /user/register          # 注册POST   /user/login             # 登录GET    /user/info              # 获取用户信息PUT    /user/profile           # 更新资料GET    /user/study-records     # 学习记录
+2. course-service（课程服务）⭐核心
+职责： 课程管理、章节管理、课程分类、课程详情
+技术亮点：
+Redis 缓存热门课程（缓存穿透、击穿、雪崩解决方案）
+课程库存管理（秒杀场景）
+延迟双删保证缓存一致性
+数据库表：
+course（课程表）course_chapter（章节表）course_section（小节表）course_category（分类表）course_teacher（讲师表）
+核心接口：
+GET    /course/list            # 课程列表（分页）GET    /course/{id}            # 课程详情GET    /course/{id}/chapters   # 课程章节POST   /course/seckill         # 秒杀抢课 ⭐GET    /course/hot             # 热门课程（Redis）
+秒杀抢课核心代码：
+@Servicepublic class SeckillService {        @Autowired    private RedisTemplate<String, Object> redisTemplate;        @Autowired    private RabbitTemplate rabbitTemplate;        /**     * 秒杀抢课（Redis + Lua 脚本保证原子性）     */    public Result seckill(Long courseId, Long userId) {        String key = "seckill:course:" + courseId;                // Lua 脚本：扣减库存 + 防止超卖        String script =             "if redis.call('get', KEYS[1]) <= '0' then " +            "   return 0 " +            "else " +            "   return redis.call('decr', KEYS[1]) " +            "end";                Long stock = redisTemplate.execute(            new DefaultRedisScript<>(script, Long.class),            Collections.singletonList(key)        );                if (stock < 0) {            return Result.error("课程已抢完");        }                // 发送 MQ 异步创建订单        SeckillMessage msg = new SeckillMessage(courseId, userId);        rabbitTemplate.convertAndSend("seckill.exchange", "seckill.order", msg);                return Result.success("抢课成功，正在生成订单");    }}
+3. order-service（订单服务）⭐核心
+职责： 订单创建、订单支付、订单查询、订单超时取消
+技术亮点：
+分布式事务（Seata AT 模式）
+RabbitMQ 延迟队列实现订单超时取消
+订单状态机设计
+数据库表：
+order_info（订单表）order_item（订单明细）
+核心接口：
+POST   /order/create           # 创建订单GET    /order/{id}             # 订单详情GET    /order/my-orders        # 我的订单PUT    /order/{id}/cancel      # 取消订单
+分布式事务核心代码：
+@Servicepublic class OrderService {        @Autowired    private CourseFeignClient courseFeignClient;        @Autowired    private UserFeignClient userFeignClient;        /**     * 创建订单（分布式事务）     * 1. 扣减课程库存（course-service）     * 2. 扣减用户余额（user-service）     * 3. 创建订单（order-service）     */    @GlobalTransactional(rollbackFor = Exception.class)    public Long createOrder(OrderDTO orderDTO) {        // 1. 扣减课程库存        courseFeignClient.deductStock(orderDTO.getCourseId(), 1);                // 2. 扣减用户余额        userFeignClient.deductBalance(orderDTO.getUserId(), orderDTO.getAmount());                // 3. 创建订单        Order order = new Order();        BeanUtils.copyProperties(orderDTO, order);        order.setStatus(OrderStatus.UNPAID);        order.setCreateTime(LocalDateTime.now());        orderMapper.insert(order);                // 4. 发送延迟消息（30分钟后检查订单状态）        rabbitTemplate.convertAndSend(            "order.delay.exchange",            "order.timeout",            order.getId(),            message -> {                message.getMessageProperties().setDelay(30 * 60 * 1000);                return message;            }        );                return order.getId();    }}
+订单超时取消（RabbitMQ 延迟队列）：
+@Componentpublic class OrderTimeoutListener {        @RabbitListener(queues = "order.timeout.queue")    public void handleTimeout(Long orderId) {        Order order = orderMapper.selectById(orderId);                // 如果订单还是未支付状态，自动取消        if (order.getStatus() == OrderStatus.UNPAID) {            // 取消订单            order.setStatus(OrderStatus.CANCELLED);            orderMapper.updateById(order);                        // 恢复课程库存            courseFeignClient.restoreStock(order.getCourseId(), 1);        }    }}
+4. video-service（视频服务）⭐亮点
+职责： 视频上传、转码、播放、防盗链
+技术亮点：
+MinIO 对象存储
+视频防盗链（签名 URL）
+视频播放进度记录
+HLS 切片播放
+数据库表：
+video（视频表）video_play_record（播放记录）
+核心接口：
+POST   /video/upload           # 上传视频GET    /video/{id}/play-url    # 获取播放地址（防盗链）POST   /video/record-progress  # 记录播放进度
+防盗链实现：
+@Servicepublic class VideoService {        /**     * 生成带签名的视频播放 URL（有效期 1 小时）     */    public String getPlayUrl(Long videoId, Long userId) {        Video video = videoMapper.selectById(videoId);                // 检查用户是否购买课程        boolean hasPurchased = orderService.checkUserPurchased(userId, video.getCourseId());        if (!hasPurchased) {            throw new BusinessException("请先购买课程");        }                // 生成签名 URL        String url = video.getUrl();        long expireTime = System.currentTimeMillis() + 3600 * 1000;        String sign = DigestUtils.md5Hex(url + expireTime + SECRET_KEY);                return url + "?expire=" + expireTime + "&sign=" + sign;    }}
+5. search-service（搜索服务）⭐亮点
+职责： 课程搜索、智能推荐、热搜榜
+技术亮点：
+Elasticsearch 全文检索
+搜索关键词高亮
+搜索历史记录
+热搜排行榜（Redis ZSet）
+核心接口：
+GET    /search/course          # 搜索课程GET    /search/suggest         # 搜索建议GET    /search/hot             # 热搜榜POST   /search/history         # 保存搜索历史
+Elasticsearch 搜索实现：
+@Servicepublic class SearchService {        @Autowired    private ElasticsearchRestTemplate esTemplate;        /**     * 搜索课程（支持分词、高亮、排序）     */    public PageResult<CourseES> searchCourse(String keyword, Integer page, Integer size) {        // 构建查询条件        NativeSearchQuery query = new NativeSearchQueryBuilder()            .withQuery(QueryBuilders.multiMatchQuery(keyword, "name", "description", "teacher"))            .withHighlightFields(                new HighlightBuilder.Field("name").preTags("<em>").postTags("</em>")            )            .withPageable(PageRequest.of(page - 1, size))            .withSort(SortBuilders.scoreSort().order(SortOrder.DESC))            .build();                // 执行搜索        SearchHits<CourseES> hits = esTemplate.search(query, CourseES.class);                // 处理高亮        List<CourseES> courses = hits.stream()            .map(hit -> {                CourseES course = hit.getContent();                Map<String, List<String>> highlightFields = hit.getHighlightFields();                if (highlightFields.containsKey("name")) {                    course.setName(highlightFields.get("name").get(0));                }                return course;            })            .collect(Collectors.toList());                return new PageResult<>(courses, hits.getTotalHits());    }}
+6. pay-service（支付服务）
+职责： 支付宝/微信支付、支付回调、退款
+技术亮点：
+支付宝沙箱环境
+异步回调处理
+幂等性保证
+核心接口：
+POST   /pay/alipay             # 支付宝支付POST   /pay/callback           # 支付回调POST   /pay/refund             # 退款
+7. comment-service（评论服务）
+职责： 课程评论、点赞、回复
+技术亮点：
+Redis 缓存热门评论
+评论树形结构
+8. msg-service（消息服务）
+职责： 站内消息、邮件通知、短信通知
+技术亮点：
+RabbitMQ 异步发送
+消息模板管理

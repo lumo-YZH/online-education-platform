@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # Nacos - 服务注册与配置中心
+  nacos:
+    image: nacos/nacos-server:v2.2.0
+    container_name: nacos
+    environment:
+      - MODE=standalone
+      - SPRING_DATASOURCE_PLATFORM=mysql
+      - MYSQL_SERVICE_HOST=host.docker.internal  # 使用宿主机的MySQL
+      - MYSQL_SERVICE_PORT=3306
+      - MYSQL_SERVICE_DB_NAME=nacos_config
+      - MYSQL_SERVICE_USER=root
+      - MYSQL_SERVICE_PASSWORD=206750
+      - JVM_XMS=256m
+      - JVM_XMX=256m
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    restart: always
+    networks:
+      - edu-network
+
+  # RabbitMQ - 消息队列
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5672:5672"   # AMQP端口
+      - "15672:15672" # 管理界面端口
+    restart: always
+    networks:
+      - edu-network
+
+  # Elasticsearch - 搜索引擎
+  elasticsearch:
+    image: elasticsearch:8.7.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    restart: always
+    networks:
+      - edu-network
+
+  # MinIO - 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # API端口
+      - "9001:9001"  # 控制台端口
+    volumes:
+      - minio-data:/data
+    restart: always
+    networks:
+      - edu-network
+
+  # Sentinel Dashboard - 流量控制面板（可选）
+  sentinel:
+    image: bladex/sentinel-dashboard:1.8.6
+    container_name: sentinel
+    ports:
+      - "8858:8858"
+    restart: always
+    networks:
+      - edu-network
+
+networks:
+  edu-network:
+    driver: bridge
+
+volumes:
+  es-data:
+    driver: local
+  minio-data:
+    driver: local
+
