@@ -43,6 +43,8 @@
         <minio.version>8.5.2</minio.version>
         <aliyun-oss.version>3.15.1</aliyun-oss.version>
         <elasticsearch.version>8.7.0</elasticsearch.version>
+        <knife4j.version>4.4.0</knife4j.version>
+        <junit.version>3.5.10</junit.version>
     </properties>
 
     <dependencyManagement>
@@ -128,6 +130,12 @@
                 <groupId>co.elastic.clients</groupId>
                 <artifactId>elasticsearch-java</artifactId>
                 <version>${elasticsearch.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.xiaoymin</groupId>
+                <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+                <version>${knife4j.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

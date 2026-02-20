@@ -8,6 +8,11 @@ spring:
       discovery:
         server-addr: ${nacos.server-addr}
       config:
+        server-addr: ${nacos.server-addr}
+        file-extension: yml
+        shared-configs:
+          - data-id: common-config.yml
+            refresh: true  # 支持动态刷新
         import-check:
           enabled: false
 
