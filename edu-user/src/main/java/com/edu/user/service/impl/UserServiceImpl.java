@@ -44,6 +44,9 @@ public class UserServiceImpl implements UserService {
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    /**
+     * 用户注册
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void register(UserRegisterDTO dto) {
@@ -90,6 +93,9 @@ public class UserServiceImpl implements UserService {
         log.info("用户注册成功：{}", dto.getUsername());
     }
 
+    /**
+     * 用户登录
+     */
     @Override
     public UserLoginVO login(UserLoginDTO dto) {
         // 1. 查询用户（支持用户名或手机号登录）
@@ -132,6 +138,9 @@ public class UserServiceImpl implements UserService {
         return new UserLoginVO(token, userInfo);
     }
 
+    /**
+     * 获取用户信息
+     */
     @Override
     public UserInfoVO getUserInfo(Long userId) {
         // 1. 先从 Redis 获取
@@ -177,6 +186,9 @@ public class UserServiceImpl implements UserService {
         return vo;
     }
 
+    /**
+     * 更新用户资料
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateProfile(Long userId, UserProfileDTO dto) {
@@ -237,6 +249,9 @@ public class UserServiceImpl implements UserService {
         log.info("用户资料更新成功：userId={}", userId);
     }
 
+    /**
+     * 发送验证码
+     */
     @Override
     public void sendCode(String phone) {
         // 1. 生成6位验证码
