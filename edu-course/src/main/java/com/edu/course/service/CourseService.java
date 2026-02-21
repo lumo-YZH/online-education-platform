@@ -34,3 +34,4 @@ public interface CourseService {
     void increaseViewCount(Long courseId);
 }
 
+
