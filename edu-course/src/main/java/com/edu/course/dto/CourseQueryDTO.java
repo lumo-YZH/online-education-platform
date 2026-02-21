@@ -61,3 +61,5 @@ public class CourseQueryDTO implements Serializable {
     private Integer pageSize = 10;
 }
 
+
+

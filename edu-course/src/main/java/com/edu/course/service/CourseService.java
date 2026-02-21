@@ -32,5 +32,12 @@ public interface CourseService {
      * 增加课程浏览量
      */
     void increaseViewCount(Long courseId);
+    
+    /**
+     * 获取热门课程（带缓存）
+     */
+    List<CourseListVO> getHotCourses(Integer limit);
 }
+
+
 

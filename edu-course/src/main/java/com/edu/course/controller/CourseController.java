@@ -62,4 +62,15 @@ public class CourseController {
         List<CourseCategoryVO> list = courseService.getCategoryList();
         return Result.success(list);
     }
+    
+    /**
+     * 获取热门课程
+     */
+    @GetMapping("/hot")
+    @Operation(summary = "热门课程", description = "获取热门课程列表（按销量排序，带缓存）")
+    @Parameter(name = "limit", description = "返回数量", required = false)
+    public Result<List<CourseListVO>> getHotCourses(@RequestParam(defaultValue = "10") Integer limit) {
+        List<CourseListVO> list = courseService.getHotCourses(limit);
+        return Result.success(list);
+    }
 }

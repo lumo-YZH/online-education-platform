@@ -11,3 +11,5 @@ import org.apache.ibatis.annotations.Mapper;
 public interface CourseTeacherMapper extends BaseMapper<CourseTeacher> {
 }
 
+
+

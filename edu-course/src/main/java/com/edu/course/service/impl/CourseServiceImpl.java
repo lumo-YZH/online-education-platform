@@ -1,8 +1,10 @@
 package com.edu.course.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.edu.common.constant.RedisConstant;
 import com.edu.common.exception.BusinessException;
 import com.edu.course.dto.CourseQueryDTO;
 import com.edu.course.entity.Course;
@@ -22,10 +24,12 @@ import com.edu.course.vo.CourseListVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +53,9 @@ public class CourseServiceImpl implements CourseService {
     
     @Autowired
     private CourseSectionMapper sectionMapper;
+    
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 分页查询课程列表
@@ -241,6 +248,108 @@ public class CourseServiceImpl implements CourseService {
         course.setViewCount(course.getViewCount() + 1);
         courseMapper.updateById(course);
         log.debug("课程浏览量+1：courseId={}", courseId);
+    }
+    
+    /**
+     * 获取热门课程（带缓存）
+     * 解决方案：
+     * 1. 缓存击穿：使用互斥锁，只允许一个线程查询数据库
+     * 2. 缓存雪崩：过期时间加随机值，避免同时过期
+     */
+    @Override
+    public List<CourseListVO> getHotCourses(Integer limit) {
+        String cacheKey = RedisConstant.COURSE_HOT_KEY;
+        String lockKey = RedisConstant.COURSE_HOT_LOCK_KEY;
+        
+        // 1. 查询缓存
+        List<CourseListVO> cachedList = (List<CourseListVO>) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedList != null) {
+            log.debug("热门课程缓存命中");
+            return cachedList;
+        }
+        
+        // 2. 缓存未命中，尝试获取互斥锁
+        try {
+            Boolean lock = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, TimeUnit.SECONDS);
+            
+            if (Boolean.TRUE.equals(lock)) {
+                log.info("获取互斥锁成功，开始查询数据库");
+                
+                try {
+                    // 3. 双重检查：再次查询缓存（防止其他线程已经写入）
+                    cachedList = (List<CourseListVO>) redisTemplate.opsForValue().get(cacheKey);
+                    if (cachedList != null) {
+                        log.debug("双重检查：缓存已存在");
+                        return cachedList;
+                    }
+                    
+                    // 4. 查询数据库
+                    List<CourseListVO> voList = queryHotCoursesFromDB(limit);
+                    
+                    // 5. 写入缓存（过期时间加随机值，防止雪崩）
+                    long expire = RedisConstant.COURSE_HOT_EXPIRE + RandomUtil.randomLong(0, 300);
+                    redisTemplate.opsForValue().set(cacheKey, voList, expire, TimeUnit.SECONDS);
+                    
+                    log.info("热门课程已写入缓存，过期时间：{}秒", expire);
+                    return voList;
+                    
+                } finally {
+                    // 6. 释放锁
+                    redisTemplate.delete(lockKey);
+                    log.debug("释放互斥锁");
+                }
+                
+            } else {
+                // 7. 获取锁失败，等待后重试
+                log.debug("获取互斥锁失败，等待重试");
+                Thread.sleep(50);
+                return getHotCourses(limit);
+            }
+            
+        } catch (InterruptedException e) {
+            log.error("获取热门课程失败", e);
+            throw new BusinessException("获取热门课程失败");
+        }
+    }
+    
+    /**
+     * 从数据库查询热门课程
+     */
+    private List<CourseListVO> queryHotCoursesFromDB(Integer limit) {
+        log.info("从数据库查询热门课程，limit={}", limit);
+        
+        // 1. 构建查询条件：按销量降序
+        LambdaQueryWrapper<Course> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Course::getStatus, 1)
+               .orderByDesc(Course::getSales)
+               .last("LIMIT " + limit);
+        
+        List<Course> courses = courseMapper.selectList(wrapper);
+        
+        // 2. 转换为 VO
+        return courses.stream().map(course -> {
+            CourseListVO vo = new CourseListVO();
+            BeanUtils.copyProperties(course, vo);
+            
+            // 查询分类名称
+            if (course.getCategoryId() != null) {
+                CourseCategory category = categoryMapper.selectById(course.getCategoryId());
+                if (category != null) {
+                    vo.setCategoryName(category.getName());
+                }
+            }
+            
+            // 查询讲师信息
+            if (course.getTeacherId() != null) {
+                CourseTeacher teacher = teacherMapper.selectById(course.getTeacherId());
+                if (teacher != null) {
+                    vo.setTeacherName(teacher.getName());
+                    vo.setTeacherAvatar(teacher.getAvatar());
+                }
+            }
+            
+            return vo;
+        }).collect(Collectors.toList());
     }
 }
 
