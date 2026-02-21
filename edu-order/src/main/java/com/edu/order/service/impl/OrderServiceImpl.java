@@ -12,6 +12,7 @@ import com.edu.order.entity.OrderItem;
 import com.edu.order.feign.CourseClient;
 import com.edu.order.mapper.OrderInfoMapper;
 import com.edu.order.mapper.OrderItemMapper;
+import com.edu.order.mq.OrderDelayProducer;
 import com.edu.order.service.OrderService;
 import com.edu.order.vo.OrderDetailVO;
 import com.edu.order.vo.OrderListVO;
@@ -42,6 +43,9 @@ public class OrderServiceImpl implements OrderService {
     
     @Autowired
     private CourseClient courseClient;
+    
+    @Autowired
+    private OrderDelayProducer orderDelayProducer;
     
     /**
      * 创建订单
@@ -111,9 +115,12 @@ public class OrderServiceImpl implements OrderService {
         
         orderItemMapper.insert(orderItem);
         
+        // 8. 发送订单超时延迟消息（30分钟后自动取消未支付订单）
+        orderDelayProducer.sendOrderTimeoutMessage(order.getId());
+        
         log.info("订单创建成功：orderNo={}, userId={}, courseId={}", orderNo, userId, dto.getCourseId());
         
-        // 8. 返回订单详情
+        // 9. 返回订单详情
         return getOrderDetail(userId, order.getId());
     }
     

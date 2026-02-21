@@ -7,7 +7,7 @@ spring:
     nacos:
       discovery:
         server-addr: ${nacos.server-addr}
-        ip: 127.0.0.1  # 指定注册到 Nacos 的 IP
+        ip: ${nacos.discovery-ip}  # 从配置文件读取注册 IP
       config:
         server-addr: ${nacos.server-addr}
         file-extension: yml

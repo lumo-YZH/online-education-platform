@@ -1,5 +1,6 @@
 package com.edu.user.controller;
 
+import com.edu.common.constant.RedisConstant;
 import com.edu.common.result.Result;
 import com.edu.user.dto.UserLoginDTO;
 import com.edu.user.dto.UserProfileDTO;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +30,9 @@ public class UserController {
     
     @Autowired
     private UserService userService;
-    
+
+    @Autowired
+    private RedisTemplate redisTemplate;
     /**
      * 用户注册
      */
@@ -95,8 +99,8 @@ public class UserController {
         // 从请求属性获取用户ID（由拦截器设置）
         Long userId = (Long) request.getAttribute("userId");
         
-        // TODO: 可以将 Token 加入黑名单或删除 Redis 中的 Token
-        
+        String tokenKey = RedisConstant.USER_TOKEN_PREFIX + userId;
+        redisTemplate.delete(tokenKey);
         log.info("用户退出登录：userId={}", userId);
         return Result.success("退出成功");
     }
