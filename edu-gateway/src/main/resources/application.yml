@@ -13,27 +13,51 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true
+          enabled: true  # 启用自动路由发现（Knife4j 需要）
           lower-case-service-id: true
       routes:
-        # 用户服务
-        - id: edu-user
+        # 用户服务 - 文档路由
+        - id: edu-user-docs
+          uri: lb://edu-user
+          predicates:
+            - Path=/user/v3/api-docs/**
+          filters:
+            - StripPrefix=1
+        
+        # 用户服务 - 业务接口路由
+        - id: edu-user-api
           uri: lb://edu-user
           predicates:
             - Path=/user/**
+
+        # 课程服务 - 文档路由
+        - id: edu-course-docs
+          uri: lb://edu-course
+          predicates:
+            - Path=/course/v3/api-docs/**
+          filters:
+            - StripPrefix=1
         
-        # 课程服务
+        # 课程服务 - 业务接口路由
         - id: edu-course
           uri: lb://edu-course
           predicates:
             - Path=/course/**
+
+        # 订单服务 - 文档路由
+        - id: edu-order-docs
+          uri: lb://edu-order
+          predicates:
+            - Path=/order/v3/api-docs/**
+          filters:
+            - StripPrefix=1
         
-        # 订单服务
+        # 订单服务 - 业务接口路由
         - id: edu-order
           uri: lb://edu-order
           predicates:
             - Path=/order/**
-      
+
       # 全局跨域配置
       globalcors:
         cors-configurations:
@@ -41,3 +65,22 @@ spring:
             allowed-origins: "*"
             allowed-methods: "*"
             allowed-headers: "*"
+
+# Knife4j 网关聚合配置
+knife4j:
+  gateway:
+    enabled: true
+    strategy: manual
+    routes:
+      - name: 用户服务
+        url: /user/v3/api-docs
+        service-name: edu-user
+        order: 1
+      - name: 课程服务
+        url: /course/v3/api-docs
+        service-name: edu-course
+        order: 2
+      - name: 订单服务
+        url: /order/v3/api-docs
+        service-name: edu-order
+        order: 3

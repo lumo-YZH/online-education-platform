@@ -117,7 +117,12 @@ public class CourseDetailVO implements Serializable {
      * 秒杀结束时间
      */
     private LocalDateTime seckillEndTime;
-    
+
+    /**
+     * 课程状态 1-正常 0-禁用
+     */
+    private Integer status;
+
     /**
      * 章节列表
      */
