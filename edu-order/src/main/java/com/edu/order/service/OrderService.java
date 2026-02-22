@@ -35,5 +35,10 @@ public interface OrderService {
      * 更新订单支付状态
      */
     void updatePayStatus(String orderNo, String tradeNo, Integer payType);
+    
+    /**
+     * 检查用户是否购买了课程
+     */
+    boolean checkUserPurchased(Long userId, Long courseId);
 }
 

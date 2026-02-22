@@ -312,7 +312,7 @@ public class OrderServiceImpl implements OrderService {
         
         // 1. 查询订单
         LambdaQueryWrapper<OrderInfo> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(OrderInfo::getOrderNo, orderNo);
+        wrapper.eq(OrderInfo::getId, orderNo);
         OrderInfo order = orderInfoMapper.selectOne(wrapper);
         
         if (order == null) {
@@ -338,6 +338,25 @@ public class OrderServiceImpl implements OrderService {
         orderInfoMapper.updateById(order);
         
         log.info("订单支付状态更新成功：orderNo={}", orderNo);
+    }
+    
+    /**
+     * 检查用户是否购买了课程
+     */
+    @Override
+    public boolean checkUserPurchased(Long userId, Long courseId) {
+        log.info("检查用户是否购买课程：userId={}, courseId={}", userId, courseId);
+        
+        LambdaQueryWrapper<OrderInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OrderInfo::getUserId, userId)
+               .eq(OrderInfo::getCourseId, courseId)
+               .eq(OrderInfo::getStatus, 1); // 已支付
+        
+        Long count = orderInfoMapper.selectCount(wrapper);
+        boolean purchased = count > 0;
+        
+        log.info("用户购买检查结果：userId={}, courseId={}, purchased={}", userId, courseId, purchased);
+        return purchased;
     }
 }
 

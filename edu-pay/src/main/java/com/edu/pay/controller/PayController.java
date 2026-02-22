@@ -105,6 +105,8 @@ public class PayController {
     public Result<Boolean> mockPay(@RequestBody MockPayDTO mockPayDTO, HttpServletRequest request) {
         // 从请求属性获取用户ID（由拦截器设置）
         Long userId = (Long) request.getAttribute("userId");
+        log.info("【模拟支付】Controller接收到userId={}, orderNo={}", userId, mockPayDTO.getOrderNo());
+
         boolean success = payService.mockPay(userId, mockPayDTO);
         return Result.success(success);
     }

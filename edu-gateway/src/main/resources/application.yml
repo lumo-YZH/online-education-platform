@@ -72,6 +72,20 @@ spring:
           predicates:
             - Path=/pay/**
 
+        # 视频服务 - 文档路由
+        - id: edu-video-docs
+          uri: lb://edu-video
+          predicates:
+            - Path=/video/v3/api-docs/**
+          filters:
+            - StripPrefix=1
+
+        # 视频服务 - 业务接口路由
+        - id: edu-video
+          uri: lb://edu-video
+          predicates:
+            - Path=/video/**
+
       # 全局跨域配置
       globalcors:
         cors-configurations:
@@ -102,3 +116,7 @@ knife4j:
         url: /pay/v3/api-docs
         service-name: edu-pay
         order: 4
+      - name: 视频服务
+        url: /video/v3/api-docs
+        service-name: edu-video
+        order: 5

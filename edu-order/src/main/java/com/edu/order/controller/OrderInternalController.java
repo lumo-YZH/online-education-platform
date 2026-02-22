@@ -32,5 +32,16 @@ public class OrderInternalController {
         orderService.updatePayStatus(orderNo, tradeNo, payType);
         return Result.success();
     }
+    
+    /**
+     * 检查用户是否购买了课程（内部接口，供其他服务调用）
+     */
+    @GetMapping("/check-purchased")
+    @Operation(summary = "检查用户是否购买了课程")
+    public Result<Boolean> checkUserPurchased(@RequestParam(value = "userId", required = true) Long userId,
+                                               @RequestParam(value = "courseId", required = true) Long courseId) {
+        log.info("【内部接口】检查用户是否购买课程：userId={}, courseId={}", userId, courseId);
+        boolean purchased = orderService.checkUserPurchased(userId, courseId);
+        return Result.success(purchased);
+    }
 }
-

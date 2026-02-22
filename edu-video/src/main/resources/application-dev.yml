@@ -1,24 +1,29 @@
 server:
-  port: 8084
+  port: 8086
 
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.1.100:3306/edu_video?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://mysql:3306/edu_video?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: dev_password
+    password: root123456
     type: com.alibaba.druid.pool.DruidDataSource
-  data:
-    redis:
-      host: 192.168.1.100
-      port: 6379
-      database: 3
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: nacos:8848
 
 nacos:
-  server-addr: 192.168.1.100:8848
+  server-addr: nacos:8848
 
+# MinIO 配置
 minio:
-  endpoint: http://192.168.1.100:9000
+  endpoint: http://minio:9000
   access-key: minioadmin
-  secret-key: minioadmin123
+  secret-key: minioadmin
+  bucket-name: edu-video
 
+# 视频防盗链签名密钥
+video:
+  sign-secret: edu-video-secret-key-2024

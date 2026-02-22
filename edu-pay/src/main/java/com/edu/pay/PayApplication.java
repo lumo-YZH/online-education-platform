@@ -9,7 +9,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 /**
  * 支付服务启动类
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.edu.pay", "com.edu.common"})
 @EnableDiscoveryClient
 @EnableFeignClients
 @MapperScan("com.edu.pay.mapper")

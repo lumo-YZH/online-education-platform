@@ -10,6 +10,9 @@ spring:
       config:
         import-check:
           enabled: false
+    openfeign:
+      circuitbreaker:
+        enabled: true
   servlet:
     multipart:
       max-file-size: 500MB
@@ -20,9 +23,21 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   mapper-locations: classpath:mapper/*.xml
 
+# SpringDoc 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+
 # MinIO 配置
 minio:
   endpoint: ${minio.endpoint}
   access-key: ${minio.access-key}
   secret-key: ${minio.secret-key}
   bucket-name: edu-video
+
+# 视频配置
+video:
+  sign-secret: ${video.sign-secret}
