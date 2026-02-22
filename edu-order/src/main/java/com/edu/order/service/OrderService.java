@@ -30,5 +30,10 @@ public interface OrderService {
      * 取消订单
      */
     void cancelOrder(Long userId, Long orderId);
+    
+    /**
+     * 更新订单支付状态
+     */
+    void updatePayStatus(String orderNo, String tradeNo, Integer payType);
 }
 

@@ -1,25 +1,26 @@
 server:
-  port: 8086
+  port: 8085
 
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.1.100:3306/edu_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://mysql:3306/edu_pay?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: dev_password
+    password: root123456
     type: com.alibaba.druid.pool.DruidDataSource
-  data:
-    redis:
-      host: 192.168.1.100
-      port: 6379
-      database: 5
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: nacos:8848
 
 nacos:
-  server-addr: 192.168.1.100:8848
+  server-addr: nacos:8848
 
+# 支付宝配置（沙箱环境）
 alipay:
-  app-id: your-app-id
-  private-key: your-private-key
-  public-key: your-public-key
-  notify-url: http://192.168.1.100:8080/pay/callback
-
+  app-id: 你的应用ID
+  private-key: 你的应用私钥
+  public-key: 支付宝公钥
+  notify-url: http://你的域名/pay/alipay/notify
+  return-url: http://你的域名/pay/alipay/return

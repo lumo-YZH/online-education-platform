@@ -301,5 +301,43 @@ public class OrderServiceImpl implements OrderService {
                 return "";
         }
     }
+    
+    /**
+     * 更新订单支付状态
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePayStatus(String orderNo, String tradeNo, Integer payType) {
+        log.info("更新订单支付状态：orderNo={}, tradeNo={}, payType={}", orderNo, tradeNo, payType);
+        
+        // 1. 查询订单
+        LambdaQueryWrapper<OrderInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OrderInfo::getOrderNo, orderNo);
+        OrderInfo order = orderInfoMapper.selectOne(wrapper);
+        
+        if (order == null) {
+            log.error("订单不存在：orderNo={}", orderNo);
+            throw new BusinessException("订单不存在");
+        }
+        
+        // 2. 检查订单状态（幂等性）
+        if (order.getStatus() == 1) {
+            log.info("订单已支付，无需重复处理：orderNo={}", orderNo);
+            return;
+        }
+        
+        if (order.getStatus() != 0) {
+            log.error("订单状态异常：orderNo={}, status={}", orderNo, order.getStatus());
+            throw new BusinessException("订单状态异常");
+        }
+        
+        // 3. 更新订单状态
+        order.setStatus(1); // 已支付
+        order.setPayType(payType);
+        order.setPayTime(LocalDateTime.now());
+        orderInfoMapper.updateById(order);
+        
+        log.info("订单支付状态更新成功：orderNo={}", orderNo);
+    }
 }
 

@@ -16,6 +16,14 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   mapper-locations: classpath:mapper/*.xml
 
+# SpringDoc 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+
 # 支付宝配置
 alipay:
   app-id: ${alipay.app-id}
@@ -23,3 +31,8 @@ alipay:
   public-key: ${alipay.public-key}
   gateway-url: https://openapi.alipaydev.com/gateway.do
   notify-url: ${alipay.notify-url}
+  return-url: ${alipay.return-url}
+
+# Seata 配置
+seata:
+  enabled: false  # 支付服务不需要分布式事务

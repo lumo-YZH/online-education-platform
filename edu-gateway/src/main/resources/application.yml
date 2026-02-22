@@ -58,6 +58,20 @@ spring:
           predicates:
             - Path=/order/**
 
+        # 支付服务 - 文档路由
+        - id: edu-pay-docs
+          uri: lb://edu-pay
+          predicates:
+            - Path=/pay/v3/api-docs/**
+          filters:
+            - StripPrefix=1
+
+        # 支付服务 - 业务接口路由
+        - id: edu-pay
+          uri: lb://edu-pay
+          predicates:
+            - Path=/pay/**
+
       # 全局跨域配置
       globalcors:
         cors-configurations:
@@ -84,3 +98,7 @@ knife4j:
         url: /order/v3/api-docs
         service-name: edu-order
         order: 3
+      - name: 支付服务
+        url: /pay/v3/api-docs
+        service-name: edu-pay
+        order: 4
