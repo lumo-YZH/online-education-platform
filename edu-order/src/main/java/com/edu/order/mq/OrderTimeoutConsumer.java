@@ -2,6 +2,7 @@ package com.edu.order.mq;
 
 import com.edu.common.constant.MQConstant;
 import com.edu.order.entity.OrderInfo;
+import com.edu.order.feign.CourseClient;
 import com.edu.order.mapper.OrderInfoMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -20,6 +21,9 @@ public class OrderTimeoutConsumer {
     
     @Autowired
     private OrderInfoMapper orderInfoMapper;
+    
+    @Autowired
+    private CourseClient courseClient;
     
     /**
      * 处理订单超时消息
@@ -48,6 +52,14 @@ public class OrderTimeoutConsumer {
             order.setStatus(2); // 已取消
             order.setCancelTime(LocalDateTime.now());
             orderInfoMapper.updateById(order);
+            
+            // 4. 恢复课程库存
+            try {
+                courseClient.restoreStock(order.getCourseId(), 1);
+                log.info("课程库存已恢复：courseId={}", order.getCourseId());
+            } catch (Exception e) {
+                log.error("恢复课程库存失败：courseId={}", order.getCourseId(), e);
+            }
             
             log.info("订单超时自动取消成功：orderNo={}, orderId={}", order.getOrderNo(), orderId);
             

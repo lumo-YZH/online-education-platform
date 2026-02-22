@@ -16,6 +16,7 @@ import com.edu.order.mq.OrderDelayProducer;
 import com.edu.order.service.OrderService;
 import com.edu.order.vo.OrderDetailVO;
 import com.edu.order.vo.OrderListVO;
+import io.seata.spring.annotation.GlobalTransactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,8 +52,10 @@ public class OrderServiceImpl implements OrderService {
      * 创建订单
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @GlobalTransactional(name = "create-order", rollbackFor = Exception.class)
     public OrderDetailVO createOrder(Long userId, CreateOrderDTO dto) {
+        log.info("开始创建订单：userId={}, courseId={}", userId, dto.getCourseId());
+        
         // 1. 查询课程信息
         Result<Map<String, Object>> courseResult = courseClient.getCourseDetail(dto.getCourseId());
         if (courseResult.getCode() != 200 || courseResult.getData() == null) {
@@ -81,15 +84,21 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("您已购买该课程");
         }
         
-        // 4. 生成订单号
+        // 4. 扣减课程库存（分布式事务）
+        Result<?> deductResult = courseClient.deductStock(dto.getCourseId(), 1);
+        if (deductResult.getCode() != 200) {
+            throw new BusinessException("扣减库存失败：" + deductResult.getMessage());
+        }
+        
+        // 5. 生成订单号
         String orderNo = generateOrderNo();
         
-        // 5. 计算订单金额（暂不考虑优惠券）
+        // 6. 计算订单金额（暂不考虑优惠券）
         BigDecimal amount = price;
         BigDecimal couponAmount = BigDecimal.ZERO;
         BigDecimal payAmount = amount.subtract(couponAmount);
         
-        // 6. 创建订单主表
+        // 7. 创建订单主表
         OrderInfo order = new OrderInfo();
         order.setOrderNo(orderNo);
         order.setUserId(userId);
@@ -104,23 +113,22 @@ public class OrderServiceImpl implements OrderService {
         
         orderInfoMapper.insert(order);
         
-        // 7. 创建订单明细表
+        // 8. 创建订单明细表
         OrderItem orderItem = new OrderItem();
         orderItem.setOrderId(order.getId());
         orderItem.setCourseId(dto.getCourseId());
         orderItem.setCourseName(courseName);
         orderItem.setPrice(price);
-        // TODO 课程数量(购物车可用）
         orderItem.setQuantity(1); // 课程数量固定为1
         
         orderItemMapper.insert(orderItem);
         
-        // 8. 发送订单超时延迟消息（30分钟后自动取消未支付订单）
+        // 9. 发送订单超时延迟消息（30分钟后自动取消未支付订单）
         orderDelayProducer.sendOrderTimeoutMessage(order.getId());
         
         log.info("订单创建成功：orderNo={}, userId={}, courseId={}", orderNo, userId, dto.getCourseId());
         
-        // 9. 返回订单详情
+        // 10. 返回订单详情
         return getOrderDetail(userId, order.getId());
     }
     
@@ -236,7 +244,15 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(2); // 已取消
         order.setCancelTime(LocalDateTime.now());
         orderInfoMapper.updateById(order);
-        
+
+        // 5. 恢复课程库存
+        try {
+            courseClient.restoreStock(order.getCourseId(), 1);
+            log.info("课程库存已恢复：courseId={}", order.getCourseId());
+        } catch (Exception e) {
+            log.error("恢复课程库存失败：courseId={}", order.getCourseId(), e);
+        }
+
         log.info("订单已取消：orderNo={}, userId={}", order.getOrderNo(), userId);
     }
     

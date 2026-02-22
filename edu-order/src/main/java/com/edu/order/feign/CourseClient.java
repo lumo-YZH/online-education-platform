@@ -4,6 +4,8 @@ import com.edu.common.result.Result;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Map;
 
@@ -18,5 +20,17 @@ public interface CourseClient {
      */
     @GetMapping("/{courseId}")
     Result<Map<String, Object>> getCourseDetail(@PathVariable("courseId") Long courseId);
+    
+    /**
+     * 扣减课程库存
+     */
+    @PostMapping("/internal/deduct-stock")
+    Result<?> deductStock(@RequestParam("courseId") Long courseId, @RequestParam("quantity") Integer quantity);
+    
+    /**
+     * 恢复课程库存
+     */
+    @PostMapping("/internal/restore-stock")
+    Result<?> restoreStock(@RequestParam("courseId") Long courseId, @RequestParam("quantity") Integer quantity);
 }
 

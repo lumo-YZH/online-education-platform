@@ -351,6 +351,53 @@ public class CourseServiceImpl implements CourseService {
             return vo;
         }).collect(Collectors.toList());
     }
+    
+    /**
+     * 扣减课程库存（用于分布式事务）
+     */
+    @Override
+    public void deductStock(Long courseId, Integer quantity) {
+        log.info("开始扣减课程库存：courseId={}, quantity={}", courseId, quantity);
+        
+        // 1. 查询课程
+        Course course = courseMapper.selectById(courseId);
+        if (course == null) {
+            throw new BusinessException("课程不存在");
+        }
+        
+        // 2. 检查库存
+        if (course.getStock() == null || course.getStock() < quantity) {
+            throw new BusinessException("课程库存不足");
+        }
+        
+        // 3. 扣减库存
+        course.setStock(course.getStock() - quantity);
+        courseMapper.updateById(course);
+        
+        log.info("课程库存扣减成功：courseId={}, 剩余库存={}", courseId, course.getStock());
+        
+    }
+    
+    /**
+     * 恢复课程库存（订单取消时）
+     */
+    @Override
+    public void restoreStock(Long courseId, Integer quantity) {
+        log.info("开始恢复课程库存：courseId={}, quantity={}", courseId, quantity);
+        
+        // 1. 查询课程
+        Course course = courseMapper.selectById(courseId);
+        if (course == null) {
+            log.warn("课程不存在，无法恢复库存：courseId={}", courseId);
+            return;
+        }
+        
+        // 2. 恢复库存
+        course.setStock(course.getStock() + quantity);
+        courseMapper.updateById(course);
+        
+        log.info("课程库存恢复成功：courseId={}, 当前库存={}", courseId, course.getStock());
+    }
 }
 
 

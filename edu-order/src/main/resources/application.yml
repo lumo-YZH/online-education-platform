@@ -25,6 +25,17 @@ springdoc:
   swagger-ui:
     enabled: true
 
-# Seata 配置（暂时禁用）
+# Seata 配置
 seata:
-  enabled: false
+  enabled: true
+  application-id: edu-order
+  tx-service-group: edu-order-group
+  registry:
+    type: file
+  config:
+    type: file
+  service:
+    vgroup-mapping:
+      edu-order-group: default
+    grouplist:
+      default: 127.0.0.1:8091

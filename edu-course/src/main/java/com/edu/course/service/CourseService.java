@@ -37,7 +37,16 @@ public interface CourseService {
      * 获取热门课程（带缓存）
      */
     List<CourseListVO> getHotCourses(Integer limit);
+    
+    /**
+     * 扣减课程库存（用于分布式事务）
+     */
+    void deductStock(Long courseId, Integer quantity);
+    
+    /**
+     * 恢复课程库存（订单取消时）
+     */
+    void restoreStock(Long courseId, Integer quantity);
 }
-
 
 

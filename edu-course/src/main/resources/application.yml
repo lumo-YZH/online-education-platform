@@ -24,3 +24,18 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     enabled: true
+
+# Seata 配置
+seata:
+  enabled: true
+  application-id: edu-course
+  tx-service-group: edu-course-group
+  registry:
+    type: file
+  config:
+    type: file
+  service:
+    vgroup-mapping:
+      edu-course-group: default
+    grouplist:
+      default: 127.0.0.1:8091

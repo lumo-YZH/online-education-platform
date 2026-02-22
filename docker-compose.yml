@@ -12,7 +12,7 @@ services:
       - MYSQL_SERVICE_PORT=3306
       - MYSQL_SERVICE_DB_NAME=nacos_config
       - MYSQL_SERVICE_USER=root
-      - MYSQL_SERVICE_PASSWORD=206750
+      - MYSQL_SERVICE_PASSWORD=******
       - JVM_XMS=256m
       - JVM_XMX=256m
     ports:
@@ -80,6 +80,35 @@ services:
     restart: always
     networks:
       - edu-network
+
+  # Seata Server - 分布式事务协调器
+  seata-server:
+    image: seataio/seata-server:1.7.0
+    container_name: seata-server
+    environment:
+      - SEATA_IP=127.0.0.1
+      - SEATA_PORT=8091
+      - STORE_MODE=db
+      - STORE_DB_DATASOURCE=druid
+      - STORE_DB_DB_TYPE=mysql
+      - STORE_DB_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+      - STORE_DB_URL=jdbc:mysql://host.docker.internal:3306/seata?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      - STORE_DB_USER=root
+      - STORE_DB_PASSWORD=******
+      - STORE_DB_MIN_CONN=5
+      - STORE_DB_MAX_CONN=30
+      - STORE_DB_GLOBAL_TABLE=global_table
+      - STORE_DB_BRANCH_TABLE=branch_table
+      - STORE_DB_LOCK_TABLE=lock_table
+      - STORE_DB_DISTRIBUTED_LOCK_TABLE=distributed_lock
+    ports:
+      - "8091:8091"
+      - "7091:7091"
+    restart: always
+    networks:
+      - edu-network
+    depends_on:
+      - nacos
 
 networks:
   edu-network:
