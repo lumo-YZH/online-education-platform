@@ -11,6 +11,7 @@ import com.edu.comment.entity.Comment;
 import com.edu.comment.entity.CommentLike;
 import com.edu.comment.mapper.CommentLikeMapper;
 import com.edu.comment.mapper.CommentMapper;
+import com.edu.comment.mq.CommentMessageProducer;
 import com.edu.comment.service.CommentService;
 import com.edu.comment.vo.CommentStatVO;
 import com.edu.comment.vo.CommentVO;
@@ -45,6 +46,9 @@ public class CommentServiceImpl implements CommentService {
     
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+    
+    @Autowired
+    private CommentMessageProducer commentMessageProducer;
     
     /**
      * 分页查询评论列表
@@ -129,11 +133,22 @@ public class CommentServiceImpl implements CommentService {
         
         commentMapper.insert(comment);
         
-        // 3. 如果是回复评论，更新父评论的回复数
+        // 3. 如果是回复评论，更新父评论的回复数，并发送消息通知
         if (dto.getParentId() != null && dto.getParentId() > 0) {
             Comment parentComment = commentMapper.selectById(dto.getParentId());
             parentComment.setReplyCount(parentComment.getReplyCount() + 1);
             commentMapper.updateById(parentComment);
+            
+            // 发送评论回复消息通知（通知被回复的用户）
+            Map<String, Object> messageParams = new java.util.HashMap<>();
+            messageParams.put("username", username);
+            messageParams.put("content", dto.getContent());
+            commentMessageProducer.sendCommentMessage(
+                parentComment.getUserId(), 
+                "COMMENT_REPLY", 
+                messageParams, 
+                "/course/" + dto.getCourseId()
+            );
         }
         
         // 4. 删除缓存

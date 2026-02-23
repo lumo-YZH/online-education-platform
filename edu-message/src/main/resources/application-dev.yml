@@ -4,28 +4,40 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.1.100:3306/edu_message?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/edu_message?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
-    password: dev_password
-    type: com.alibaba.druid.pool.DruidDataSource
-  data:
-    redis:
-      host: 192.168.1.100
-      port: 6379
-      database: 7
+    password: root
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+      test-while-idle: true
+      validation-query: SELECT 1
 
+  # RabbitMQ 配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+
+  # 邮件配置（可选）
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: your_email@qq.com
+    password: your_auth_code
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+# Nacos 配置
 nacos:
-  server-addr: 192.168.1.100:8848
-
-rabbitmq:
-  host: 192.168.1.100
-  port: 5672
-  username: admin
-  password: admin123
-
-mail:
-  host: smtp.qq.com
-  port: 587
-  username: your-email@qq.com
-  password: your-auth-code
-
+  server-addr: localhost:8848
+  discovery-ip: 127.0.0.1

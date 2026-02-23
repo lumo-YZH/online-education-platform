@@ -13,6 +13,7 @@ import com.edu.order.feign.CourseClient;
 import com.edu.order.mapper.OrderInfoMapper;
 import com.edu.order.mapper.OrderItemMapper;
 import com.edu.order.mq.OrderDelayProducer;
+import com.edu.order.mq.OrderMessageProducer;
 import com.edu.order.service.OrderService;
 import com.edu.order.vo.OrderDetailVO;
 import com.edu.order.vo.OrderListVO;
@@ -47,6 +48,9 @@ public class OrderServiceImpl implements OrderService {
     
     @Autowired
     private OrderDelayProducer orderDelayProducer;
+    
+    @Autowired
+    private OrderMessageProducer orderMessageProducer;
     
     /**
      * 创建订单
@@ -126,9 +130,16 @@ public class OrderServiceImpl implements OrderService {
         // 9. 发送订单超时延迟消息（30分钟后自动取消未支付订单）
         orderDelayProducer.sendOrderTimeoutMessage(order.getId());
         
+        // 10. 发送订单创建消息通知
+        Map<String, Object> messageParams = new java.util.HashMap<>();
+        messageParams.put("orderNo", orderNo);
+        messageParams.put("courseName", courseName);
+        messageParams.put("amount", payAmount);
+        orderMessageProducer.sendOrderMessage(userId, "ORDER_CREATE", messageParams, "/order/" + order.getId());
+        
         log.info("订单创建成功：orderNo={}, userId={}, courseId={}", orderNo, userId, dto.getCourseId());
         
-        // 10. 返回订单详情
+        // 11. 返回订单详情
         return getOrderDetail(userId, order.getId());
     }
     
@@ -252,6 +263,12 @@ public class OrderServiceImpl implements OrderService {
         } catch (Exception e) {
             log.error("恢复课程库存失败：courseId={}", order.getCourseId(), e);
         }
+        
+        // 6. 发送订单取消消息通知
+        Map<String, Object> messageParams = new java.util.HashMap<>();
+        messageParams.put("orderNo", order.getOrderNo());
+        messageParams.put("courseName", order.getCourseName());
+        orderMessageProducer.sendOrderMessage(userId, "ORDER_CANCEL", messageParams, "/order/" + orderId);
 
         log.info("订单已取消：orderNo={}, userId={}", order.getOrderNo(), userId);
     }
@@ -336,6 +353,13 @@ public class OrderServiceImpl implements OrderService {
         order.setPayType(payType);
         order.setPayTime(LocalDateTime.now());
         orderInfoMapper.updateById(order);
+        
+        // 4. 发送订单支付成功消息通知
+        Map<String, Object> messageParams = new java.util.HashMap<>();
+        messageParams.put("orderNo", order.getOrderNo());
+        messageParams.put("courseName", order.getCourseName());
+        messageParams.put("amount", order.getPayAmount());
+        orderMessageProducer.sendOrderMessage(order.getUserId(), "ORDER_PAY", messageParams, "/order/" + order.getId());
         
         log.info("订单支付状态更新成功：orderNo={}", orderNo);
     }

@@ -114,6 +114,20 @@ spring:
           predicates:
             - Path=/comment/**
 
+        # 消息服务 - 文档路由
+        - id: edu-message-docs
+          uri: lb://edu-message
+          predicates:
+            - Path=/message/v3/api-docs/**
+          filters:
+            - StripPrefix=1
+
+        # 消息服务 - 业务接口路由
+        - id: edu-message
+          uri: lb://edu-message
+          predicates:
+            - Path=/message/**
+
       # 全局跨域配置
       globalcors:
         cors-configurations:
@@ -156,3 +170,7 @@ knife4j:
         url: /comment/v3/api-docs
         service-name: edu-comment
         order: 7
+      - name: 消息服务
+        url: /message/v3/api-docs
+        service-name: edu-message
+        order: 8

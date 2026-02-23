@@ -7,21 +7,20 @@ spring:
     nacos:
       discovery:
         server-addr: ${nacos.server-addr}
+        ip: ${nacos.discovery-ip}
       config:
         import-check:
           enabled: false
-  rabbitmq:
-    host: ${rabbitmq.host}
-    port: ${rabbitmq.port}
-    username: ${rabbitmq.username}
-    password: ${rabbitmq.password}
-  mail:
-    host: ${mail.host}
-    port: ${mail.port}
-    username: ${mail.username}
-    password: ${mail.password}
 
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   mapper-locations: classpath:mapper/*.xml
+
+# SpringDoc 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
