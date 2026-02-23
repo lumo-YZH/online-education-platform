@@ -4,6 +4,9 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,10 +46,15 @@ public class ElasticsearchConfig {
             new HttpHost(host, port, "http")
         ).build();
         
-        // 创建 Transport
+        // 配置 ObjectMapper 支持 Java 8 时间类型
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        
+        // 创建 Transport（使用自定义的 ObjectMapper）
         ElasticsearchTransport transport = new RestClientTransport(
             restClient, 
-            new JacksonJsonpMapper()
+            new JacksonJsonpMapper(objectMapper)
         );
         
         // 创建 ElasticsearchClient

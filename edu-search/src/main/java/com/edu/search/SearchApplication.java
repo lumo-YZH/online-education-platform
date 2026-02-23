@@ -17,7 +17,7 @@ public class SearchApplication {
         SpringApplication.run(SearchApplication.class, args);
         System.out.println("========================================");
         System.out.println("搜索服务启动成功！");
-        System.out.println("Swagger 文档地址：http://localhost:8085/doc.html");
+        System.out.println("Swagger 文档地址：http://localhost:8084/doc.html");
         System.out.println("========================================");
     }
 }

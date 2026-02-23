@@ -1,5 +1,9 @@
 package com.edu.search.config;
 
+import com.edu.common.constant.MQConstant;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
@@ -20,7 +24,7 @@ public class RabbitMQConfig {
      */
     @Bean
     public TopicExchange courseSyncExchange() {
-        return new TopicExchange("course.sync.exchange", true, false);
+        return new TopicExchange(MQConstant.COURSE_SYNC_EXCHANGE, true, false);
     }
     
     /**
@@ -28,7 +32,7 @@ public class RabbitMQConfig {
      */
     @Bean
     public Queue courseSyncQueue() {
-        return new Queue("course.sync.queue", true);
+        return new Queue(MQConstant.COURSE_SYNC_QUEUE, true);
     }
     
     /**
@@ -39,15 +43,22 @@ public class RabbitMQConfig {
         return BindingBuilder
             .bind(courseSyncQueue())
             .to(courseSyncExchange())
-            .with("course.sync.#");
+            .with(MQConstant.COURSE_SYNC_ROUTING_KEY);
     }
     
     /**
      * 消息转换器（JSON）
+     * 支持 LocalDateTime 等 Java 8 时间类型
      */
     @Bean
     public MessageConverter messageConverter() {
-        return new Jackson2JsonMessageConverter();
+        ObjectMapper objectMapper = new ObjectMapper();
+        // 注册 JavaTimeModule 支持 Java 8 时间类型
+        objectMapper.registerModule(new JavaTimeModule());
+        // 禁用将日期写为时间戳
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        
+        return new Jackson2JsonMessageConverter(objectMapper);
     }
 }
 

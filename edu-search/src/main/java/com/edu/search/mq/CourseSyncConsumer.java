@@ -32,6 +32,12 @@ public class CourseSyncConsumer {
                  message.getId(), message.getAction());
         
         try {
+            // 检查 ES 连接
+            if (!checkElasticsearchConnection()) {
+                log.error("Elasticsearch 未连接，跳过同步：courseId={}", message.getId());
+                return;
+            }
+            
             if ("DELETE".equals(message.getAction())) {
                 // 删除 ES 文档
                 DeleteRequest request = DeleteRequest.of(d -> d
@@ -58,6 +64,19 @@ public class CourseSyncConsumer {
         } catch (Exception e) {
             log.error("同步 ES 失败：courseId={}", message.getId(), e);
             // 可以记录失败日志，后续补偿
+        }
+    }
+    
+    /**
+     * 检查 Elasticsearch 连接
+     */
+    private boolean checkElasticsearchConnection() {
+        try {
+            esClient.ping();
+            return true;
+        } catch (Exception e) {
+            log.error("Elasticsearch 连接失败：{}", e.getMessage());
+            return false;
         }
     }
 }
