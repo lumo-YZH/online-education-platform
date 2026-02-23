@@ -19,5 +19,10 @@ public class MQConstant {
     public static final String MESSAGE_EXCHANGE = "message.exchange";
     public static final String MESSAGE_QUEUE = "message.queue";
     public static final String MESSAGE_ROUTING_KEY = "message.send";
+    
+    // 课程同步
+    public static final String COURSE_SYNC_EXCHANGE = "course.sync.exchange";
+    public static final String COURSE_SYNC_QUEUE = "course.sync.queue";
+    public static final String COURSE_SYNC_ROUTING_KEY = "course.sync";
 }
 

@@ -1,9 +1,10 @@
-package com.edu.search.listener;
+package com.edu.search.mq;
 
 import cn.hutool.core.bean.BeanUtil;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.DeleteRequest;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
+import com.edu.common.constant.MQConstant;
 import com.edu.search.document.CourseDocument;
 import com.edu.search.dto.CourseMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class CourseSyncListener {
+public class CourseSyncConsumer {
     
     @Autowired
     private ElasticsearchClient esClient;
@@ -25,7 +26,7 @@ public class CourseSyncListener {
     /**
      * 监听课程新增/更新消息
      */
-    @RabbitListener(queues = "course.sync.queue")
+    @RabbitListener(queues = MQConstant.COURSE_SYNC_QUEUE)
     public void handleCourseSync(CourseMessage message) {
         log.info("接收到课程同步消息：courseId={}, action={}", 
                  message.getId(), message.getAction());

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.edu.common.constant.RedisConstant;
 import com.edu.common.exception.BusinessException;
 import com.edu.course.dto.CourseQueryDTO;
+import com.edu.course.dto.CourseSyncMessage;
 import com.edu.course.entity.Course;
 import com.edu.course.entity.CourseCategory;
 import com.edu.course.entity.CourseChapter;
@@ -17,6 +18,7 @@ import com.edu.course.mapper.CourseChapterMapper;
 import com.edu.course.mapper.CourseMapper;
 import com.edu.course.mapper.CourseSectionMapper;
 import com.edu.course.mapper.CourseTeacherMapper;
+import com.edu.course.mq.CourseSyncProducer;
 import com.edu.course.service.CourseService;
 import com.edu.course.vo.CourseCategoryVO;
 import com.edu.course.vo.CourseDetailVO;
@@ -56,6 +58,9 @@ public class CourseServiceImpl implements CourseService {
     
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+    
+    @Autowired
+    private CourseSyncProducer courseSyncProducer;
 
     /**
      * 分页查询课程列表
@@ -248,6 +253,9 @@ public class CourseServiceImpl implements CourseService {
         course.setViewCount(course.getViewCount() + 1);
         courseMapper.updateById(course);
         log.debug("课程浏览量+1：courseId={}", courseId);
+        
+        // 发送课程同步消息到 ES
+        sendCourseSyncMessage(course, "UPDATE");
     }
     
     /**
@@ -370,12 +378,15 @@ public class CourseServiceImpl implements CourseService {
             throw new BusinessException("课程库存不足");
         }
         
-        // 3. 扣减库存
+        // 3. 扣减库存和销量
         course.setStock(course.getStock() - quantity);
+        course.setSales(course.getSales() + quantity);
         courseMapper.updateById(course);
         
         log.info("课程库存扣减成功：courseId={}, 剩余库存={}", courseId, course.getStock());
         
+        // 发送课程同步消息到 ES
+        sendCourseSyncMessage(course, "UPDATE");
     }
     
     /**
@@ -392,11 +403,63 @@ public class CourseServiceImpl implements CourseService {
             return;
         }
         
-        // 2. 恢复库存
+        // 2. 恢复库存和销量
         course.setStock(course.getStock() + quantity);
+        course.setSales(course.getSales() - quantity);
         courseMapper.updateById(course);
         
         log.info("课程库存恢复成功：courseId={}, 当前库存={}", courseId, course.getStock());
+        
+        // 发送课程同步消息到 ES
+        sendCourseSyncMessage(course, "UPDATE");
+    }
+    
+    /**
+     * 发送课程同步消息到 MQ
+     * 
+     * @param course 课程实体
+     * @param action 操作类型：CREATE, UPDATE, DELETE
+     */
+    private void sendCourseSyncMessage(Course course, String action) {
+        try {
+            CourseSyncMessage message = new CourseSyncMessage();
+            message.setAction(action);
+            message.setId(course.getId());
+            message.setName(course.getName());
+            message.setDescription(course.getDescription());
+            message.setCover(course.getCover());
+            message.setCategoryId(course.getCategoryId());
+            message.setTeacherId(course.getTeacherId());
+            message.setPrice(course.getPrice());
+            message.setSales(course.getSales());
+            message.setViewCount(course.getViewCount());
+            message.setLevel(course.getLevel());
+            message.setStatus(course.getStatus());
+            message.setCreateTime(course.getCreateTime());
+            
+            // 查询分类名称
+            if (course.getCategoryId() != null) {
+                CourseCategory category = categoryMapper.selectById(course.getCategoryId());
+                if (category != null) {
+                    message.setCategoryName(category.getName());
+                }
+            }
+            
+            // 查询讲师名称
+            if (course.getTeacherId() != null) {
+                CourseTeacher teacher = teacherMapper.selectById(course.getTeacherId());
+                if (teacher != null) {
+                    message.setTeacherName(teacher.getName());
+                }
+            }
+            
+            // 发送消息
+            courseSyncProducer.sendCourseSyncMessage(message);
+            
+        } catch (Exception e) {
+            log.error("发送课程同步消息失败：courseId={}", course.getId(), e);
+            // 不影响主流程，只记录日志
+        }
     }
 }
 
