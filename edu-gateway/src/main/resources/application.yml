@@ -100,6 +100,20 @@ spring:
           predicates:
             - Path=/search/**
 
+        # 评论服务 - 文档路由
+        - id: edu-comment-docs
+          uri: lb://edu-comment
+          predicates:
+            - Path=/comment/v3/api-docs/**
+          filters:
+            - StripPrefix=1
+
+        # 评论服务 - 业务接口路由
+        - id: edu-comment
+          uri: lb://edu-comment
+          predicates:
+            - Path=/comment/**
+
       # 全局跨域配置
       globalcors:
         cors-configurations:
@@ -138,3 +152,7 @@ knife4j:
         url: /search/v3/api-docs
         service-name: edu-search
         order: 6
+      - name: 评论服务
+        url: /comment/v3/api-docs
+        service-name: edu-comment
+        order: 7

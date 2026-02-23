@@ -126,9 +126,16 @@ public class UserServiceImpl implements UserService {
         String tokenKey = RedisConstant.USER_TOKEN_PREFIX + user.getId();
         redisTemplate.opsForValue().set(tokenKey, token, 7, TimeUnit.DAYS);
 
-        // 6. 缓存用户信息到 Redis
+        // 6. 缓存用户信息到 Redis（只存储必要字段，避免序列化问题）
         String userKey = RedisConstant.USER_INFO_PREFIX + user.getId();
-        redisTemplate.opsForValue().set(userKey, user, 7, TimeUnit.DAYS);
+        java.util.Map<String, Object> userInfoMap = new java.util.HashMap<>();
+        userInfoMap.put("id", user.getId());
+        userInfoMap.put("username", user.getUsername());
+        userInfoMap.put("nickname", user.getNickname());
+        userInfoMap.put("avatar", user.getAvatar());
+        userInfoMap.put("phone", user.getPhone());
+        userInfoMap.put("email", user.getEmail());
+        redisTemplate.opsForValue().set(userKey, userInfoMap, 7, TimeUnit.DAYS);
 
         // 7. 构建返回结果
         UserInfoVO userInfo = getUserInfo(user.getId());
@@ -143,21 +150,10 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public UserInfoVO getUserInfo(Long userId) {
-        // 1. 先从 Redis 获取
-        String userKey = RedisConstant.USER_INFO_PREFIX + userId;
-        User cachedUser = (User) redisTemplate.opsForValue().get(userKey);
-
-        User user;
-        if (cachedUser != null) {
-            user = cachedUser;
-        } else {
-            // 2. Redis 没有，从数据库查询
-            user = userMapper.selectById(userId);
-            if (user == null) {
-                throw new BusinessException("用户不存在");
-            }
-            // 3. 存入 Redis
-            redisTemplate.opsForValue().set(userKey, user, 7, TimeUnit.DAYS);
+        // 1. 从数据库查询（用户信息可能变更，不从 Redis 读取）
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
         }
 
         // 4. 查询用户资料
@@ -207,6 +203,17 @@ public class UserServiceImpl implements UserService {
 
         userMapper.updateById(user);
 
+        // 1.5 更新 Redis 缓存
+        String userKey = RedisConstant.USER_INFO_PREFIX + userId;
+        java.util.Map<String, Object> userInfoMap = new java.util.HashMap<>();
+        userInfoMap.put("id", user.getId());
+        userInfoMap.put("username", user.getUsername());
+        userInfoMap.put("nickname", user.getNickname());
+        userInfoMap.put("avatar", user.getAvatar());
+        userInfoMap.put("phone", user.getPhone());
+        userInfoMap.put("email", user.getEmail());
+        redisTemplate.opsForValue().set(userKey, userInfoMap, 7, TimeUnit.DAYS);
+
         // 2. 更新用户资料
         LambdaQueryWrapper<UserProfile> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserProfile::getUserId, userId);
@@ -241,10 +248,6 @@ public class UserServiceImpl implements UserService {
         } else {
             userProfileMapper.updateById(profile);
         }
-
-        // 3. 删除 Redis 缓存
-        String userKey = RedisConstant.USER_INFO_PREFIX + userId;
-        redisTemplate.delete(userKey);
 
         log.info("用户资料更新成功：userId={}", userId);
     }

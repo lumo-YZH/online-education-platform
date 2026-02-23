@@ -101,7 +101,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             // 5. 解析 Token 获取用户ID
             Long userId = JwtUtil.getUserId(token);
             
-            // 6. 验证 Token 是否在 Redis 中
+             // 6. 验证 Token 是否在 Redis 中，并获取用户信息
             String tokenKey = RedisConstant.USER_TOKEN_PREFIX + userId;
             String redisToken = (String) redisTemplate.opsForValue().get(tokenKey);
             
@@ -110,16 +110,32 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
                 return unauthorized(exchange.getResponse(), "Token 无效，请重新登录");
             }
             
-            // 7. Token 验证通过，将 userId 添加到请求头传递给下游服务
+            // 7. 从 Redis 获取用户信息
+            String userInfoKey = RedisConstant.USER_INFO_PREFIX + userId;
+            Object userInfoObj = redisTemplate.opsForValue().get(userInfoKey);
+            
+            String username = "";
+            String avatar = "";
+            
+            if (userInfoObj != null && userInfoObj instanceof java.util.Map) {
+                // Redis 中存储的是 Map 结构
+                java.util.Map<String, Object> userMap = (java.util.Map<String, Object>) userInfoObj;
+                username = userMap.get("username") != null ? userMap.get("username").toString() : "";
+                avatar = userMap.get("avatar") != null ? userMap.get("avatar").toString() : "";
+            }
+            
+            // 8. Token 验证通过，将用户信息添加到请求头传递给下游服务
             ServerHttpRequest mutatedRequest = request.mutate()
-                    .header("X-User-Id", String.valueOf(userId))
+                    .header("userId", String.valueOf(userId))
+                    .header("username", username)
+                    .header("avatar", avatar)
                     .build();
             
             ServerWebExchange mutatedExchange = exchange.mutate()
                     .request(mutatedRequest)
                     .build();
             
-            log.debug("Token 验证通过，userId={}，path={}", userId, path);
+            log.debug("Token 验证通过，userId={}，username={}，path={}", userId, username, path);
             
             return chain.filter(mutatedExchange);
             
