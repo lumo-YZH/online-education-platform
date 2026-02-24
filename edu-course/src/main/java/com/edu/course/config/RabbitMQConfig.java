@@ -60,5 +60,32 @@ public class RabbitMQConfig {
         
         return new Jackson2JsonMessageConverter(objectMapper);
     }
+
+    /**
+     * 秒杀交换机
+     */
+    @Bean
+    public TopicExchange seckillExchange() {
+        return new TopicExchange("seckill.exchange", true, false);
+    }
+
+    /**
+     * 秒杀订单队列
+     */
+    @Bean
+    public Queue seckillOrderQueue() {
+        return new Queue("seckill.order.queue", true);
+    }
+
+    /**
+     * 绑定秒杀订单队列到交换机
+     */
+    @Bean
+    public Binding seckillOrderBinding() {
+        return BindingBuilder
+                .bind(seckillOrderQueue())
+                .to(seckillExchange())
+                .with("seckill.order");
+    }
 }
 

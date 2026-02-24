@@ -12,11 +12,11 @@ services:
       - MYSQL_SERVICE_PORT=3306
       - MYSQL_SERVICE_DB_NAME=nacos_config
       - MYSQL_SERVICE_USER=root
-      - MYSQL_SERVICE_PASSWORD=******
+      - MYSQL_SERVICE_PASSWORD=206750
       - JVM_XMS=256m
       - JVM_XMX=256m
     ports:
-      - "8848:8848"
+      - "18848:18848"
       - "9848:9848"
     restart: always
     networks:
@@ -46,7 +46,7 @@ services:
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
     ports:
-      - "9200:9200"
+      - "19200:19200"
       - "9300:9300"
     volumes:
       - es-data:/usr/share/elasticsearch/data
@@ -94,7 +94,7 @@ services:
       - STORE_DB_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
       - STORE_DB_URL=jdbc:mysql://host.docker.internal:3306/seata?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       - STORE_DB_USER=root
-      - STORE_DB_PASSWORD=******
+      - STORE_DB_PASSWORD=206750
       - STORE_DB_MIN_CONN=5
       - STORE_DB_MAX_CONN=30
       - STORE_DB_GLOBAL_TABLE=global_table

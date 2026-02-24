@@ -144,6 +144,71 @@ public class OrderServiceImpl implements OrderService {
     }
     
     /**
+     * 创建秒杀订单
+     * 秒杀订单不需要扣减库存（已在课程服务的Redis中扣减）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderDetailVO createSeckillOrder(com.edu.order.dto.SeckillMessage message) {
+        log.info("开始创建秒杀订单：userId={}, courseId={}", message.getUserId(), message.getCourseId());
+        
+        // 1. 检查用户是否已有该课程的订单（防止重复创建）
+        LambdaQueryWrapper<OrderInfo> checkWrapper = new LambdaQueryWrapper<>();
+        checkWrapper.eq(OrderInfo::getUserId, message.getUserId())
+                   .eq(OrderInfo::getCourseId, message.getCourseId())
+                   .in(OrderInfo::getStatus, 0, 1); // 未支付或已支付
+        
+        Long count = orderInfoMapper.selectCount(checkWrapper);
+        if (count > 0) {
+            log.warn("用户已有该课程的订单，跳过创建：userId={}, courseId={}", 
+                message.getUserId(), message.getCourseId());
+            throw new BusinessException("您已有该课程的订单");
+        }
+        
+        // 2. 生成订单号
+        String orderNo = generateOrderNo();
+        
+        // 3. 创建订单主表
+        OrderInfo order = new OrderInfo();
+        order.setOrderNo(orderNo);
+        order.setUserId(message.getUserId());
+        order.setCourseId(message.getCourseId());
+        order.setCourseName(message.getCourseName());
+        order.setCourseCover(message.getCourseCover());
+        order.setAmount(message.getSeckillPrice());
+        order.setCouponAmount(BigDecimal.ZERO);
+        order.setPayAmount(message.getSeckillPrice());
+        order.setStatus(0); // 未支付
+        
+        orderInfoMapper.insert(order);
+        
+        // 4. 创建订单明细表
+        OrderItem orderItem = new OrderItem();
+        orderItem.setOrderId(order.getId());
+        orderItem.setCourseId(message.getCourseId());
+        orderItem.setCourseName(message.getCourseName());
+        orderItem.setPrice(message.getSeckillPrice());
+        orderItem.setQuantity(1);
+        
+        orderItemMapper.insert(orderItem);
+        
+        // 5. 发送订单超时延迟消息（30分钟后自动取消未支付订单）
+        orderDelayProducer.sendOrderTimeoutMessage(order.getId());
+        
+        // 6. 发送订单创建消息通知
+        Map<String, Object> messageParams = new java.util.HashMap<>();
+        messageParams.put("orderNo", orderNo);
+        messageParams.put("courseName", message.getCourseName());
+        messageParams.put("amount", message.getSeckillPrice());
+        orderMessageProducer.sendOrderMessage(message.getUserId(), "ORDER_CREATE", messageParams, "/order/" + order.getId());
+        
+        log.info("秒杀订单创建成功：orderNo={}, userId={}, courseId={}", orderNo, message.getUserId(), message.getCourseId());
+        
+        // 7. 返回订单详情
+        return getOrderDetail(message.getUserId(), order.getId());
+    }
+    
+    /**
      * 分页查询订单列表
      */
     @Override

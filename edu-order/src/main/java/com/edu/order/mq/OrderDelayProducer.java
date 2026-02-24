@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 订单延迟消息生产者
+ * 使用消息 TTL 实现延迟（不需要延迟插件）
  */
 @Slf4j
 @Component
@@ -19,10 +20,11 @@ public class OrderDelayProducer {
     /**
      * 订单超时时间（毫秒）：30分钟
      */
-    private static final Integer ORDER_TIMEOUT_DELAY = 30 * 60 * 1000;
+    private static final Long ORDER_TIMEOUT_DELAY = 30 * 60 * 1000L;
     
     /**
      * 发送订单超时延迟消息
+     * 使用消息 TTL 实现延迟
      * 
      * @param orderId 订单ID
      */
@@ -33,8 +35,8 @@ public class OrderDelayProducer {
                     MQConstant.ORDER_TIMEOUT_ROUTING_KEY,
                     orderId,
                     message -> {
-                        // 设置延迟时间
-                        message.getMessageProperties().setDelay(ORDER_TIMEOUT_DELAY);
+                        // 设置消息过期时间（TTL）
+                        message.getMessageProperties().setExpiration(ORDER_TIMEOUT_DELAY.toString());
                         return message;
                     }
             );

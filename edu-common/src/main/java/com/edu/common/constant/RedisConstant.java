@@ -18,10 +18,11 @@ public class RedisConstant {
     
     // 秒杀相关
     public static final String SECKILL_COURSE_PREFIX = "seckill:course:";
-    
+    public static final String SECKILL_USER_PREFIX = "seckill:user:";
+
     // 搜索相关
     public static final String SEARCH_HOT_PREFIX = "search:hot";
-    
+
     // 验证码
     public static final String SMS_CODE_PREFIX = "sms:code:";
 }

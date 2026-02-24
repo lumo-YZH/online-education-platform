@@ -15,31 +15,13 @@ import java.util.Map;
 
 /**
  * RabbitMQ 配置类
- * 配置订单超时延迟队列和消息转换器
+ * 配置订单超时队列和秒杀订单队列
  */
 @Configuration
 public class RabbitMQConfig {
     
     /**
-     * 延迟交换机
-     * 使用 x-delayed-message 类型（需要安装延迟插件）
-     */
-    @Bean
-    public CustomExchange orderDelayExchange() {
-        Map<String, Object> args = new HashMap<>();
-        args.put("x-delayed-type", "direct");
-        
-        return new CustomExchange(
-                MQConstant.ORDER_DELAY_EXCHANGE,
-                "x-delayed-message",
-                true,
-                false,
-                args
-        );
-    }
-    
-    /**
-     * 订单超时队列
+     * 订单超时队列（真正消费的队列）
      */
     @Bean
     public Queue orderTimeoutQueue() {
@@ -47,15 +29,49 @@ public class RabbitMQConfig {
     }
     
     /**
-     * 绑定队列到延迟交换机
+     * 订单超时交换机
+     */
+    @Bean
+    public DirectExchange orderTimeoutExchange() {
+        return new DirectExchange(MQConstant.ORDER_DELAY_EXCHANGE, true, false);
+    }
+    
+    /**
+     * 绑定订单超时队列到交换机
      */
     @Bean
     public Binding orderTimeoutBinding() {
         return BindingBuilder
                 .bind(orderTimeoutQueue())
-                .to(orderDelayExchange())
-                .with(MQConstant.ORDER_TIMEOUT_ROUTING_KEY)
-                .noargs();
+                .to(orderTimeoutExchange())
+                .with(MQConstant.ORDER_TIMEOUT_ROUTING_KEY);
+    }
+    
+    /**
+     * 秒杀订单队列
+     */
+    @Bean
+    public Queue seckillOrderQueue() {
+        return QueueBuilder.durable("seckill.order.queue").build();
+    }
+    
+    /**
+     * 秒杀交换机
+     */
+    @Bean
+    public TopicExchange seckillExchange() {
+        return new TopicExchange("seckill.exchange", true, false);
+    }
+    
+    /**
+     * 绑定秒杀订单队列到交换机
+     */
+    @Bean
+    public Binding seckillOrderBinding() {
+        return BindingBuilder
+                .bind(seckillOrderQueue())
+                .to(seckillExchange())
+                .with("seckill.order");
     }
     
     /**

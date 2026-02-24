@@ -3,6 +3,7 @@ package com.edu.order.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.edu.order.dto.CreateOrderDTO;
 import com.edu.order.dto.OrderQueryDTO;
+import com.edu.order.dto.SeckillMessage;
 import com.edu.order.vo.OrderDetailVO;
 import com.edu.order.vo.OrderListVO;
 
@@ -15,6 +16,11 @@ public interface OrderService {
      * 创建订单
      */
     OrderDetailVO createOrder(Long userId, CreateOrderDTO dto);
+    
+    /**
+     * 创建秒杀订单
+     */
+    OrderDetailVO createSeckillOrder(SeckillMessage message);
     
     /**
      * 分页查询订单列表
