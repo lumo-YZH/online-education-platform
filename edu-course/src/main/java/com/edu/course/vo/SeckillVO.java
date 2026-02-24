@@ -1,6 +1,7 @@
 package com.edu.course.vo;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -8,6 +9,7 @@ import lombok.NoArgsConstructor;
  * 秒杀结果VO
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SeckillVO {
@@ -23,16 +25,16 @@ public class SeckillVO {
     private String message;
     
     /**
-     * 订单ID（成功时返回）
+     * 订单号（成功时返回）
      */
-    private Long orderId;
+    private String orderNo;
     
     public static SeckillVO success(String message) {
         return new SeckillVO(true, message, null);
     }
     
-    public static SeckillVO success(String message, Long orderId) {
-        return new SeckillVO(true, message, orderId);
+    public static SeckillVO success(String message, String orderNo) {
+        return new SeckillVO(true, message, orderNo);
     }
     
     public static SeckillVO fail(String message) {

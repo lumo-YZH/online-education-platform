@@ -46,5 +46,10 @@ public interface OrderService {
      * 检查用户是否购买了课程
      */
     boolean checkUserPurchased(Long userId, Long courseId);
+    
+    /**
+     * 查询用户的秒杀订单号
+     */
+    String getSeckillOrderNo(Long userId, Long courseId);
 }
 

@@ -35,6 +35,9 @@ public class SeckillServiceImpl implements SeckillService {
     @Autowired
     private SeckillProducer seckillProducer;
     
+    @Autowired
+    private com.edu.course.feign.OrderClient orderClient;
+    
     /**
      * Lua 脚本：扣减库存（保证原子性）
      * 返回值：1-成功，0-库存不足，-1-库存key不存在
@@ -174,7 +177,18 @@ public class SeckillServiceImpl implements SeckillService {
         Boolean hasOrdered = redisTemplate.hasKey(userKey);
         
         if (Boolean.TRUE.equals(hasOrdered)) {
-            return SeckillVO.success("抢购成功，订单生成中");
+            // 查询订单ID
+            try {
+                com.edu.common.result.Result<String> result = orderClient.getSeckillOrderNo(userId, courseId);
+                if (result != null && result.getCode() == 200 && result.getData() != null) {
+                    return SeckillVO.success("抢购成功", result.getData());
+                } else {
+                    return SeckillVO.success( "抢购成功，订单生成中");
+                }
+            } catch (Exception e) {
+                log.error("查询订单ID失败：userId={}, courseId={}", userId, courseId, e);
+                return SeckillVO.success("抢购成功，订单生成中");
+            }
         } else {
             return SeckillVO.fail("未抢购或抢购失败");
         }

@@ -152,11 +152,11 @@ public class OrderServiceImpl implements OrderService {
     public OrderDetailVO createSeckillOrder(com.edu.order.dto.SeckillMessage message) {
         log.info("开始创建秒杀订单：userId={}, courseId={}", message.getUserId(), message.getCourseId());
         
-        // 1. 检查用户是否已有该课程的订单（防止重复创建）
+        // 1. 检查用户是否已有该课程的订单
         LambdaQueryWrapper<OrderInfo> checkWrapper = new LambdaQueryWrapper<>();
         checkWrapper.eq(OrderInfo::getUserId, message.getUserId())
                    .eq(OrderInfo::getCourseId, message.getCourseId())
-                   .in(OrderInfo::getStatus, 0, 1); // 未支付或已支付
+                   .eq(OrderInfo::getStatus, 1); // 已支付
         
         Long count = orderInfoMapper.selectCount(checkWrapper);
         if (count > 0) {
@@ -164,7 +164,7 @@ public class OrderServiceImpl implements OrderService {
                 message.getUserId(), message.getCourseId());
             throw new BusinessException("您已有该课程的订单");
         }
-        
+
         // 2. 生成订单号
         String orderNo = generateOrderNo();
         
@@ -275,7 +275,7 @@ public class OrderServiceImpl implements OrderService {
         LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
         itemWrapper.eq(OrderItem::getOrderId, orderId);
         List<OrderItem> orderItems = orderItemMapper.selectList(itemWrapper);
-        
+
         // 4. 转换为 VO
         OrderDetailVO vo = new OrderDetailVO();
         BeanUtils.copyProperties(order, vo);
@@ -446,6 +446,31 @@ public class OrderServiceImpl implements OrderService {
         
         log.info("用户购买检查结果：userId={}, courseId={}, purchased={}", userId, courseId, purchased);
         return purchased;
+    }
+
+    /**
+     * 查询用户的秒杀订单号
+     */
+    @Override
+    public String getSeckillOrderNo(Long userId, Long courseId) {
+        log.info("查询秒杀订单ID：userId={}, courseId={}", userId, courseId);
+        
+        LambdaQueryWrapper<OrderInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OrderInfo::getUserId, userId)
+               .eq(OrderInfo::getCourseId, courseId)
+               .in(OrderInfo::getStatus, 0, 1) // 未支付或已支付
+               .orderByDesc(OrderInfo::getCreateTime)
+               .last("LIMIT 1");
+        
+        OrderInfo order = orderInfoMapper.selectOne(wrapper);
+        
+        if (order != null) {
+            log.info("找到秒杀订单：orderId={}, orderNo={}", order.getId(), order.getOrderNo());
+            return order.getOrderNo();
+        } else {
+            log.info("未找到秒杀订单：userId={}, courseId={}", userId, courseId);
+            return null;
+        }
     }
 }
 

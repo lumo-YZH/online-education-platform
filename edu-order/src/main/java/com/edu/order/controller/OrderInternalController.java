@@ -6,42 +6,49 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 订单内部接口（供其他服务调用）
+ * 订单内部接口控制器
+ * 提供给其他服务调用的内部接口
  */
 @Slf4j
 @RestController
 @RequestMapping("/order/internal")
-@Tag(name = "订单内部接口")
+@Tag(name = "订单内部接口", description = "提供给其他服务调用")
 public class OrderInternalController {
     
     @Autowired
     private OrderService orderService;
     
     /**
-     * 更新订单支付状态
+     * 检查用户是否购买了课程
      */
-    @PutMapping("/pay-success/{orderNo}")
-    @Operation(summary = "更新订单支付状态")
-    public Result<?> updatePayStatus(@PathVariable String orderNo,
-                                      @RequestParam String tradeNo,
-                                      @RequestParam Integer payType) {
-        log.info("更新订单支付状态：orderNo={}, tradeNo={}, payType={}", orderNo, tradeNo, payType);
-        orderService.updatePayStatus(orderNo, tradeNo, payType);
-        return Result.success();
+    @GetMapping("/check-purchased")
+    @Operation(summary = "检查用户是否购买了课程", description = "内部接口")
+    public Result<Boolean> checkUserPurchased(
+            @RequestParam("userId") Long userId,
+            @RequestParam("courseId") Long courseId) {
+        
+        log.info("检查用户是否购买课程：userId={}, courseId={}", userId, courseId);
+        boolean purchased = orderService.checkUserPurchased(userId, courseId);
+        return Result.success(purchased);
     }
     
     /**
-     * 检查用户是否购买了课程（内部接口，供其他服务调用）
+     * 查询用户的秒杀订单号
      */
-    @GetMapping("/check-purchased")
-    @Operation(summary = "检查用户是否购买了课程")
-    public Result<Boolean> checkUserPurchased(@RequestParam(value = "userId", required = true) Long userId,
-                                               @RequestParam(value = "courseId", required = true) Long courseId) {
-        log.info("【内部接口】检查用户是否购买课程：userId={}, courseId={}", userId, courseId);
-        boolean purchased = orderService.checkUserPurchased(userId, courseId);
-        return Result.success(purchased);
+    @GetMapping("/seckill-order")
+    @Operation(summary = "查询秒杀订单号", description = "内部接口")
+    public Result<String> getSeckillOrderNo(
+            @RequestParam("userId") Long userId,
+            @RequestParam("courseId") Long courseId) {
+        
+        log.info("查询秒杀订单ID：userId={}, courseId={}", userId, courseId);
+        String orderNo = orderService.getSeckillOrderNo(userId, courseId);
+        return Result.success(orderNo);
     }
 }
