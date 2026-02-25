@@ -11,6 +11,12 @@ spring:
       config:
         import-check:
           enabled: false
+    sentinel:
+      transport:
+        dashboard: ${spring.cloud.sentinel.transport.dashboard}  # Sentinel 控制台地址
+        port: 8720  # 与控制台通信的端口（每个服务不同）
+      enabled: true
+      eager: true  # 饥饿加载，启动时就连接 Dashboard
 
 mybatis-plus:
   configuration:

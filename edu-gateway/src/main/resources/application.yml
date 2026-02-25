@@ -10,6 +10,18 @@ spring:
       config:
         import-check:
           enabled: false
+    sentinel:
+      transport:
+        dashboard: ${spring.cloud.sentinel.transport.dashboard}  # Sentinel 控制台地址
+        port: 8719  # 与控制台通信的端口
+      enabled: true
+      eager: true  # 饥饿加载，启动时就连接 Dashboard
+      # 网关限流配置
+      scg:
+        fallback:
+          mode: response  # 限流后返回模式
+          response-status: 429  # 返回状态码
+          response-body: '{"code":429,"message":"访问过于频繁，请稍后再试"}'
     gateway:
       discovery:
         locator:

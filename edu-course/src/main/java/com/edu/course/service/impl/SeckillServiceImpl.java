@@ -1,5 +1,7 @@
 package com.edu.course.service.impl;
 
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.edu.common.constant.RedisConstant;
 import com.edu.common.exception.BusinessException;
@@ -56,8 +58,13 @@ public class SeckillServiceImpl implements SeckillService {
     
     /**
      * 秒杀抢课
+     * 使用 Sentinel 限流保护，防止高并发压垮系统
      */
     @Override
+    @SentinelResource(
+        value = "seckill",  // 资源名称
+        blockHandler = "seckillBlockHandler"  // 限流后的降级方法
+    )
     public SeckillVO seckill(Long courseId, Long userId) {
         log.info("秒杀抢课：courseId={}, userId={}", courseId, userId);
         
@@ -87,12 +94,13 @@ public class SeckillServiceImpl implements SeckillService {
         }
         
         // 4. 检查用户是否已经抢购过（防止重复抢购）
+        // 注意：测试 Sentinel 限流时，可以临时注释掉这段代码
         String userKey = RedisConstant.SECKILL_USER_PREFIX + userId + ":" + courseId;
         Boolean hasOrdered = redisTemplate.hasKey(userKey);
         if (Boolean.TRUE.equals(hasOrdered)) {
             return SeckillVO.fail("您已经抢购过该课程");
         }
-        
+
         // 5. 使用 Lua 脚本扣减 Redis 库存（保证原子性）
         String stockKey = RedisConstant.SECKILL_COURSE_PREFIX + courseId;
         
@@ -116,7 +124,9 @@ public class SeckillServiceImpl implements SeckillService {
         }
         
         // 6. 扣减成功，标记用户已抢购（24小时过期）
-        redisTemplate.opsForValue().set(userKey, "1", 24, TimeUnit.HOURS);
+        // 注意：测试 Sentinel 限流时，可以临时注释掉这段代码
+//         String userKey = RedisConstant.SECKILL_USER_PREFIX + userId + ":" + courseId;
+         redisTemplate.opsForValue().set(userKey, "1", 24, TimeUnit.HOURS);
         
         // 7. 发送 MQ 消息，异步创建订单
         SeckillMessage message = new SeckillMessage(
@@ -192,6 +202,15 @@ public class SeckillServiceImpl implements SeckillService {
         } else {
             return SeckillVO.fail("未抢购或抢购失败");
         }
+    }
+    
+    /**
+     * Sentinel 限流降级方法
+     * 当秒杀接口被限流时，会调用此方法
+     */
+    public SeckillVO seckillBlockHandler(Long courseId, Long userId, BlockException ex) {
+        log.warn("秒杀接口被限流：courseId={}, userId={}, exception={}", courseId, userId, ex.getClass().getSimpleName());
+        return SeckillVO.fail("当前抢购人数过多，请稍后再试");
     }
 }
 
