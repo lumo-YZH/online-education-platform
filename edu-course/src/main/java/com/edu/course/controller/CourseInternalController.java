@@ -39,5 +39,16 @@ public class CourseInternalController {
         courseService.restoreStock(courseId, quantity);
         return Result.success("库存恢复成功");
     }
+    
+    /**
+     * 更新小节的视频ID
+     */
+    @PostMapping("/update-section-video")
+    @Operation(summary = "更新小节的视频ID", description = "视频上传后更新小节关联")
+    public Result<?> updateSectionVideo(@RequestParam Long sectionId, @RequestParam Long videoId) {
+        log.info("更新小节视频ID：sectionId={}, videoId={}", sectionId, videoId);
+        courseService.updateSectionVideo(sectionId, videoId);
+        return Result.success("更新成功");
+    }
 }
 

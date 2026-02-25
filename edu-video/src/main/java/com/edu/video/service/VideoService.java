@@ -5,6 +5,8 @@ import com.edu.video.dto.VideoUploadDTO;
 import com.edu.video.vo.VideoPlayVO;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 /**
  * 视频服务接口
  */
@@ -35,5 +37,22 @@ public interface VideoService {
      * @param dto 播放进度
      */
     void recordProgress(Long userId, PlayProgressDTO dto);
+    
+    /**
+     * 获取用户课程学习进度
+     * 
+     * @param userId 用户ID
+     * @param courseId 课程ID
+     * @return 学习进度（0-100）
+     */
+    Integer getCourseProgress(Long userId, Long courseId);
+    
+    /**
+     * 批量获取用户课程学习进度
+     * 
+     * @param userId 用户ID
+     * @return Map<课程ID, 学习进度>
+     */
+    Map<Long, Integer> getBatchCourseProgress(Long userId);
 }
 

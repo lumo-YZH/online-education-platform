@@ -40,7 +40,9 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             // 课程服务公开接口
             "/course/list",
             "/course/category/list",
-            "/course/hot"
+            "/course/hot",
+            // 搜索服务
+            "/search/**"
     );
     
     /**

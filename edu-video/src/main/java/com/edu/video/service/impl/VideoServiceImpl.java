@@ -45,6 +45,9 @@ public class VideoServiceImpl implements VideoService {
     @Autowired
     private OrderClient orderClient;
     
+    @Autowired
+    private com.edu.video.feign.CourseClient courseClient;
+    
     @Value("${minio.bucket-name}")
     private String bucketName;
     
@@ -95,6 +98,23 @@ public class VideoServiceImpl implements VideoService {
             videoMapper.insert(video);
             
             log.info("视频上传成功：videoId={}, url={}", video.getId(), url);
+            
+            // 5. 更新小节的视频ID
+            if (dto.getSectionId() != null) {
+                try {
+                    Result<?> result = courseClient.updateSectionVideo(dto.getSectionId(), video.getId());
+                    if (result.getCode() == 200) {
+                        log.info("小节视频ID更新成功：sectionId={}, videoId={}", dto.getSectionId(), video.getId());
+                    } else {
+                        log.warn("小节视频ID更新失败：sectionId={}, videoId={}, msg={}", 
+                                dto.getSectionId(), video.getId(), result.getMessage());
+                    }
+                } catch (Exception e) {
+                    log.error("调用课程服务更新小节视频ID失败", e);
+                    // 不影响主流程，只记录日志
+                }
+            }
+            
             return video.getId();
             
         } catch (Exception e) {
@@ -128,10 +148,28 @@ public class VideoServiceImpl implements VideoService {
             throw new BusinessException("请先购买课程");
         }
         
-        // 3. 生成带签名的播放 URL（有效期 1 小时）
-        long expireTime = System.currentTimeMillis() + 3600 * 1000;
-        String sign = DigestUtil.md5Hex(video.getUrl() + expireTime + signSecret);
-        String playUrl = video.getUrl() + "?expire=" + expireTime + "&sign=" + sign;
+        // 3. 生成 MinIO 预签名 URL（有效期 1 小时）
+        String playUrl;
+        try {
+            // 从完整 URL 中提取对象名称
+            String objectName = video.getUrl().substring(video.getUrl().indexOf(bucketName) + bucketName.length() + 1);
+            
+            // 生成预签名 URL
+            playUrl = minioClient.getPresignedObjectUrl(
+                io.minio.GetPresignedObjectUrlArgs.builder()
+                    .method(io.minio.http.Method.GET)
+                    .bucket(bucketName)
+                    .object(objectName)
+                    .expiry(3600) // 1小时有效期
+                    .build()
+            );
+            
+            log.info("生成预签名URL成功：objectName={}", objectName);
+        } catch (Exception e) {
+            log.error("生成预签名URL失败", e);
+            // 降级：使用原始 URL
+            playUrl = video.getUrl();
+        }
         
         // 4. 查询上次播放位置
         LambdaQueryWrapper<VideoPlayRecord> wrapper = new LambdaQueryWrapper<>();
@@ -158,6 +196,14 @@ public class VideoServiceImpl implements VideoService {
         log.info("记录播放进度：userId={}, videoId={}, position={}", 
                  userId, dto.getVideoId(), dto.getLastPlayPosition());
         
+        // 参数校验和默认值处理
+        if (dto.getPlayTime() == null) {
+            dto.setPlayTime(0);
+        }
+        if (dto.getLastPlayPosition() == null) {
+            dto.setLastPlayPosition(0);
+        }
+        
         // 1. 查询是否已有记录
         LambdaQueryWrapper<VideoPlayRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(VideoPlayRecord::getUserId, userId)
@@ -177,6 +223,8 @@ public class VideoServiceImpl implements VideoService {
             Video video = videoMapper.selectById(dto.getVideoId());
             if (video != null && video.getDuration() != null && video.getDuration() > 0) {
                 record.setProgress((int) ((dto.getLastPlayPosition() * 100.0) / video.getDuration()));
+            } else {
+                record.setProgress(0);
             }
             
             playRecordMapper.insert(record);
@@ -189,12 +237,76 @@ public class VideoServiceImpl implements VideoService {
             Video video = videoMapper.selectById(dto.getVideoId());
             if (video != null && video.getDuration() != null && video.getDuration() > 0) {
                 record.setProgress((int) ((dto.getLastPlayPosition() * 100.0) / video.getDuration()));
+            } else {
+                record.setProgress(0);
             }
             
             playRecordMapper.updateById(record);
         }
         
         log.info("播放进度记录成功：userId={}, videoId={}", userId, dto.getVideoId());
+    }
+    
+    /**
+     * 获取用户课程学习进度
+     */
+    @Override
+    public Integer getCourseProgress(Long userId, Long courseId) {
+        log.info("获取用户课程学习进度：userId={}, courseId={}", userId, courseId);
+        
+        // 1. 查询该课程下所有视频的播放记录
+        LambdaQueryWrapper<VideoPlayRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(VideoPlayRecord::getUserId, userId)
+               .eq(VideoPlayRecord::getCourseId, courseId);
+        
+        java.util.List<VideoPlayRecord> records = playRecordMapper.selectList(wrapper);
+        
+        if (records.isEmpty()) {
+            return 0;
+        }
+        
+        // 2. 计算平均进度
+        int totalProgress = records.stream()
+                .mapToInt(VideoPlayRecord::getProgress)
+                .sum();
+        
+        int avgProgress = totalProgress / records.size();
+        
+        log.info("课程学习进度：userId={}, courseId={}, progress={}", userId, courseId, avgProgress);
+        return avgProgress;
+    }
+    
+    /**
+     * 批量获取用户课程学习进度
+     */
+    @Override
+    public java.util.Map<Long, Integer> getBatchCourseProgress(Long userId) {
+        log.info("批量获取用户课程学习进度：userId={}", userId);
+        
+        // 1. 查询用户所有播放记录
+        LambdaQueryWrapper<VideoPlayRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(VideoPlayRecord::getUserId, userId);
+        
+        java.util.List<VideoPlayRecord> records = playRecordMapper.selectList(wrapper);
+        
+        if (records.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+        
+        // 2. 按课程ID分组，计算每个课程的平均进度
+        java.util.Map<Long, Integer> progressMap = records.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        VideoPlayRecord::getCourseId,
+                        java.util.stream.Collectors.averagingInt(VideoPlayRecord::getProgress)
+                ))
+                .entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        java.util.Map.Entry::getKey,
+                        entry -> entry.getValue().intValue()
+                ));
+        
+        log.info("批量获取课程学习进度完成：userId={}, courseCount={}", userId, progressMap.size());
+        return progressMap;
     }
 }
 

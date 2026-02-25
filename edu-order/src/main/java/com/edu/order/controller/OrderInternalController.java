@@ -51,4 +51,15 @@ public class OrderInternalController {
         String orderNo = orderService.getSeckillOrderNo(userId, courseId);
         return Result.success(orderNo);
     }
+    
+    /**
+     * 获取用户已购买的课程ID列表
+     */
+    @GetMapping("/purchased-courses")
+    @Operation(summary = "获取用户已购买的课程ID列表", description = "内部接口")
+    public Result<java.util.List<Long>> getUserPurchasedCourseIds(@RequestParam("userId") Long userId) {
+        log.info("查询用户已购买的课程ID列表：userId={}", userId);
+        java.util.List<Long> courseIds = orderService.getUserPurchasedCourseIds(userId);
+        return Result.success(courseIds);
+    }
 }

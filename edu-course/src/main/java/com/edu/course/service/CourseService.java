@@ -47,6 +47,16 @@ public interface CourseService {
      * 恢复课程库存（订单取消时）
      */
     void restoreStock(Long courseId, Integer quantity);
+    
+    /**
+     * 获取我的课程（已购买的课程）
+     */
+    List<CourseListVO> getMyCourses(Long userId);
+    
+    /**
+     * 更新小节的视频ID
+     */
+    void updateSectionVideo(Long sectionId, Long videoId);
 }
 
 

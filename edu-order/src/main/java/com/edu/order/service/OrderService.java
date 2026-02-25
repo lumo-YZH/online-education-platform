@@ -51,5 +51,10 @@ public interface OrderService {
      * 查询用户的秒杀订单号
      */
     String getSeckillOrderNo(Long userId, Long courseId);
+    
+    /**
+     * 获取用户已购买的课程ID列表
+     */
+    java.util.List<Long> getUserPurchasedCourseIds(Long userId);
 }
 

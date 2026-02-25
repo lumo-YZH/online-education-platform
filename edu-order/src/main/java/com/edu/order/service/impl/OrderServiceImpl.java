@@ -472,5 +472,28 @@ public class OrderServiceImpl implements OrderService {
             return null;
         }
     }
+    
+    /**
+     * 获取用户已购买的课程ID列表
+     */
+    @Override
+    public List<Long> getUserPurchasedCourseIds(Long userId) {
+        log.info("查询用户已购买的课程ID列表：userId={}", userId);
+        
+        LambdaQueryWrapper<OrderInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OrderInfo::getUserId, userId)
+               .eq(OrderInfo::getStatus, 1) // 已支付
+               .orderByDesc(OrderInfo::getPayTime);
+        
+        List<OrderInfo> orders = orderInfoMapper.selectList(wrapper);
+        
+        List<Long> courseIds = orders.stream()
+                .map(OrderInfo::getCourseId)
+                .distinct()
+                .collect(Collectors.toList());
+        
+        log.info("用户已购买课程数量：userId={}, count={}", userId, courseIds.size());
+        return courseIds;
+    }
 }
 

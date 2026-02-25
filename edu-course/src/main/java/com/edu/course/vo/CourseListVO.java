@@ -86,6 +86,11 @@ public class CourseListVO implements Serializable {
      * 创建时间
      */
     private LocalDateTime createTime;
+    
+    /**
+     * 学习进度（0-100）
+     */
+    private Integer progress;
 }
 
 

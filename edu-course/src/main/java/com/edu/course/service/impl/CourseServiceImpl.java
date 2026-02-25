@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.edu.common.constant.RedisConstant;
 import com.edu.common.exception.BusinessException;
+import com.edu.common.result.Result;
 import com.edu.course.dto.CourseQueryDTO;
 import com.edu.course.dto.CourseSyncMessage;
 import com.edu.course.entity.Course;
@@ -13,6 +14,8 @@ import com.edu.course.entity.CourseCategory;
 import com.edu.course.entity.CourseChapter;
 import com.edu.course.entity.CourseSection;
 import com.edu.course.entity.CourseTeacher;
+import com.edu.course.feign.OrderClient;
+import com.edu.course.feign.VideoClient;
 import com.edu.course.mapper.CourseCategoryMapper;
 import com.edu.course.mapper.CourseChapterMapper;
 import com.edu.course.mapper.CourseMapper;
@@ -28,9 +31,11 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -61,6 +66,12 @@ public class CourseServiceImpl implements CourseService {
     
     @Autowired
     private CourseSyncProducer courseSyncProducer;
+    
+    @Autowired
+    private OrderClient orderClient;
+    
+    @Autowired
+    private VideoClient videoClient;
 
     /**
      * 分页查询课程列表
@@ -412,6 +423,88 @@ public class CourseServiceImpl implements CourseService {
         
         // 发送课程同步消息到 ES
         sendCourseSyncMessage(course, "UPDATE");
+    }
+
+    /**
+     * 获取我的课程（已购买的课程）
+     */
+    @Override
+    public List<CourseListVO> getMyCourses(Long userId) {
+        log.info("查询用户已购买的课程：userId={}", userId);
+        
+        // 1. 通过订单服务查询用户已购买的课程ID列表
+        Result<List<Long>> courseIdsResult = orderClient.getUserPurchasedCourseIds(userId);
+        if (courseIdsResult.getCode() != 200 || courseIdsResult.getData() == null || courseIdsResult.getData().isEmpty()) {
+            log.info("用户暂无已购买的课程：userId={}", userId);
+            return new ArrayList<>();
+        }
+        
+        List<Long> courseIds = courseIdsResult.getData();
+        log.info("用户已购买课程数量：userId={}, count={}", userId, courseIds.size());
+        
+        // 2. 批量查询课程信息
+        LambdaQueryWrapper<Course> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(Course::getId, courseIds)
+               .eq(Course::getStatus, 1); // 只查询上架的课程
+
+        List<Course> courses = courseMapper.selectList(wrapper);
+
+        // 3. 批量获取学习进度
+        Result<Map<Long, Integer>> progressResult = videoClient.getBatchCourseProgress(userId);
+        Map<Long, Integer> progressMap = progressResult.getCode() == 200 && progressResult.getData() != null 
+                ? progressResult.getData() 
+                : new java.util.HashMap<>();
+        
+        // 4. 转换为 VO
+        List<CourseListVO> voList = courses.stream().map(course -> {
+            CourseListVO vo = new CourseListVO();
+            BeanUtils.copyProperties(course, vo);
+            
+            // 查询分类名称
+            if (course.getCategoryId() != null) {
+                CourseCategory category = categoryMapper.selectById(course.getCategoryId());
+                if (category != null) {
+                    vo.setCategoryName(category.getName());
+                }
+            }
+            
+            // 查询讲师信息
+            if (course.getTeacherId() != null) {
+                CourseTeacher teacher = teacherMapper.selectById(course.getTeacherId());
+                if (teacher != null) {
+                    vo.setTeacherName(teacher.getName());
+                    vo.setTeacherAvatar(teacher.getAvatar());
+                }
+            }
+            
+            // 设置学习进度
+            Integer progress = progressMap.getOrDefault(course.getId(), 0);
+            vo.setProgress(progress);
+            
+            return vo;
+        }).collect(Collectors.toList());
+        
+        log.info("查询我的课程完成：userId={}, count={}", userId, voList.size());
+        return voList;
+    }
+    
+    /**
+     * 更新小节的视频ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateSectionVideo(Long sectionId, Long videoId) {
+        log.info("更新小节视频ID：sectionId={}, videoId={}", sectionId, videoId);
+        
+        CourseSection section = sectionMapper.selectById(sectionId);
+        if (section == null) {
+            throw new BusinessException("小节不存在");
+        }
+        
+        section.setVideoId(videoId);
+        sectionMapper.updateById(section);
+        
+        log.info("小节视频ID更新成功：sectionId={}, videoId={}", sectionId, videoId);
     }
     
     /**

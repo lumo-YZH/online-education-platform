@@ -73,4 +73,15 @@ public class CourseController {
         List<CourseListVO> list = courseService.getHotCourses(limit);
         return Result.success(list);
     }
+    
+    /**
+     * 获取我的课程（已购买的课程）
+     */
+    @GetMapping("/my-courses")
+    @Operation(summary = "我的课程", description = "获取当前用户已购买的课程列表")
+    public Result<List<CourseListVO>> getMyCourses(jakarta.servlet.http.HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        List<CourseListVO> list = courseService.getMyCourses(userId);
+        return Result.success(list);
+    }
 }
